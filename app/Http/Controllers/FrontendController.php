@@ -96,8 +96,7 @@ class FrontendController extends Controller
     // $wishlist = auth()->check() ? auth()->user()->wishlist()->pluck('product_id')->toArray() : [];
     $wishlist = session()->get('wishlist', []);
     
-    // Oruவேளை session-ல் array keys-ல product_ids இருந்தா (e.g., ['1' => true]) array_keys எடுக்கலாம்,
-    // இல்லையெனில் direct value array-வாக இருந்தால் array_values அல்லது direct $wishlist-ஐயே பயன்படுத்தலாம்.
+
     $wishlistIds = is_array($wishlist) ? array_keys($wishlist) : [];
 
     return response()->json([
@@ -108,7 +107,6 @@ class FrontendController extends Controller
     // B. Blockbuster Deals (Swiper Slide Fetch)
     public function fetchDiscountProducts()
     {
-        // 1-க்கும் மேற்பட்ட தள்ளுபடி (Discount Percentage > 0) உள்ள வேரியண்ட்களை மட்டும் எடுக்கிறோம்
         $products = Product::where('status', 1)
             ->whereHas('variants', function($q) {
                 $q->where('status', 1)->where('discount_percentage', '>', 0);
@@ -138,7 +136,6 @@ class FrontendController extends Controller
 
  public function discountProducts()
 {
-    // 1. fetchProducts போலவே இதிலும் variants, category, material-ஐ eager load செய்கிறோம்
     $products = Product::with(['category', 'material', 'variants'])
         ->where('is_new_arrival', 1)
         ->where('status', 1) // Active-ஆன தயாரிப்புகளை மட்டும் எடுக்க
@@ -151,8 +148,6 @@ class FrontendController extends Controller
             // Image key structure alignment
             $product->images = $product->images ?? $product->image ?? $product->thumbnail ?? '';
             
-            // 💡 முக்கிய மாற்றம்: மெயின் தயாரிப்பிலேயே விலை இல்லை என்றால், 
-            // முதலாவது வேரியண்ட்டின் (First Variant) விலையை மெயின் விலையாக செட் செய்கிறோம்.
             if (!$product->price && $product->variants->isNotEmpty()) {
                 $firstVariant = $product->variants->first();
                 $product->price = $firstVariant->price;
