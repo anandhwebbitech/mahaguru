@@ -4,10 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Category;
-use App\Models\Material;
-
+use Illuminate\Support\Facades\File;
 
 class CategoryController extends Controller
 {
@@ -24,11 +22,24 @@ class CategoryController extends Controller
 
     public function store(Request $request)
     {
-        Category::create([
-            'name' => $request->name
+        $request->validate([
+            'name'  => 'required|string|max:255',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // 2MB Max
         ]);
 
-        return redirect()->route('admin.category.index');
+        $imageName = null;
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '.' . $image->getClientOriginalExtension();
+            $image->move(public_path('uploads/categories'), $imageName);
+        }
+
+        Category::create([
+            'name'  => $request->name,
+            'image' => $imageName
+        ]);
+
+        return redirect()->route('admin.category.index')->with('success', 'Category created successfully!');
     }
 
     public function edit($id)
@@ -39,15 +50,45 @@ class CategoryController extends Controller
 
     public function update(Request $request, $id)
     {
-        Category::findOrFail($id)->update([
-            'name' => $request->name
+        $request->validate([
+            'name'  => 'required|string|max:255',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
 
-        return redirect()->route('admin.category.index');
+        $category = Category::findOrFail($id);
+        $imageName = $category->image;
+
+        if ($request->hasFile('image')) {
+            // பழைய படம் இருந்தால் அதை நீக்குதல்
+            $oldImagePath = public_path('uploads/categories/' . $category->image);
+            if (File::exists($oldImagePath) && $category->image) {
+                File::delete($oldImagePath);
+            }
+
+            // புதிய படத்தை பதிவேற்றுதல்
+            $image = $request->file('image');
+            $imageName = time() . '.' . $image->getClientOriginalExtension();
+            $image->move(public_path('uploads/categories'), $imageName);
+        }
+
+        $category->update([
+            'name'  => $request->name,
+            'image' => $imageName
+        ]);
+
+        return redirect()->route('admin.category.index')->with('success', 'Category updated successfully!');
     }
+
     public function destroy($id)
     {
         $category = Category::findOrFail($id);
+
+        // டேட்டாபேஸில் இருந்து நீக்குவதற்கு முன் கோப்புறையில் உள்ள படத்தை நீக்குதல்
+        $imagePath = public_path('uploads/categories/' . $category->image);
+        if (File::exists($imagePath) && $category->image) {
+            File::delete($imagePath);
+        }
+
         $category->delete();
 
         return redirect()->back()->with('success', 'Category deleted successfully');

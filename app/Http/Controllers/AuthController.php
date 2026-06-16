@@ -57,28 +57,94 @@ class AuthController extends Controller
     //     ]);
     // }
     public function loginCheck(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required',
+    ]);
+
+    // Role 1 அல்லாத பயனர்களை மட்டும் தேடுகிறது
+    $user = User::where('email', $request->email)->whereNotIn('role', [1])->first();
+    
+    if (!$user) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Email address not found',
+        ], 404);
+    }
+
+    // கடவுச்சொல் சரிபார்ப்பு
+    if (!Hash::check($request->password, $user->password)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Incorrect password matching registry',
+        ], 401);
+    }
+
+    // 4 இலக்க OTP உருவாக்குதல்
+    $otp = rand(1000, 9999);
+
+    // தற்காலிகமாக பயனர் விபரங்களை செஷனில் சேமித்தல் (3 நிமிடங்கள் மட்டும்)
+    Session::put('otp_email', $user->email);
+    Session::put('otp_code', $otp);
+    Session::put('otp_expires_at', now()->addMinutes(3));
+
+    try {
+        // Mailtrap மூலம் OTP அனுப்புதல்
+        Mail::send([], [], function ($message) use ($user, $otp) {
+            $message->to($user->email)
+                ->subject('Your Login OTP Code')
+                ->html("<h3>Your Security OTP Code is: <b style='color: #007bff; font-size: 24px;'>{$otp}</b></h3>
+                        <p>This code will expire in 3 minutes.</p>");
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Credentials verified! OTP has been sent to your email.',
         ]);
 
-        $user = User::where('email', $request->email)->whereNotIn('role', [1])->first();
-        
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Email address not found',
-            ], 404);
-        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send OTP email. Please check your mail configurations.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 
-        if (!Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Incorrect password matching registry',
-            ], 401);
-        }
+// 2. OTP-ஐ சரிபார்த்து இறுதி லாகின் செய்யும் மெத்தட்
+public function verifyEmailOtp(Request $request)
+{
+    $request->validate([
+        'otp' => 'required|numeric',
+    ]);
 
+    $sessionEmail = Session::get('otp_email');
+    $sessionOtp = Session::get('otp_code');
+    $expiresAt = Session::get('otp_expires_at');
+
+    // செஷன் காலாவதி மற்றும் இருப்பு சரிபார்ப்பு
+    if (!$sessionOtp || !$sessionEmail || now()->greaterThan($expiresAt)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'OTP has expired or session invalid. Please login again.',
+        ], 422);
+    }
+
+    // பயனர் உள்ளிட்ட OTP-யும் செஷன் OTP-யும் ஒத்துப்போகிறதா எனப் பார்த்தல்
+    if (intval($request->otp) !== intval($sessionOtp)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid OTP code. Please check again.',
+        ], 401);
+    }
+
+    // OTP வெற்றிகரமாக முடிந்ததால் செஷனை அழித்துவிட்டு லாகின் செய்தல்
+    Session::forget(['otp_email', 'otp_code', 'otp_expires_at']);
+
+    $user = User::where('email', $sessionEmail)->first();
+    
+    if ($user) {
         Auth::login($user);
         $request->session()->regenerate();
 
@@ -88,6 +154,12 @@ class AuthController extends Controller
             'redirect_url' => url('/'),
         ]);
     }
+
+    return response()->json([
+        'success' => false,
+        'message' => 'Authentication failed.',
+    ], 500);
+}
     public function logout(Request $request)
     {
         Auth::logout();
@@ -271,82 +343,98 @@ class AuthController extends Controller
 
     // 4. Generate and dispatch Email OTP
     public function sendEmailOtp(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email'
-        ]);
+{
+    $request->validate([
+        'email' => 'required|email',
+    ]);
 
-        $user = User::where('email', $request->email)
-                    ->whereNotIn('role', [1])
-                    ->first();
+    // Role 1 அல்லாத பயனர்களை மட்டும் தேடுகிறது (உங்கள் நிபந்தனைப்படி)
+    $user = User::where('email', $request->email)->whereNotIn('role', [1])->first();
+    
+    if (!$user) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Email address not found.',
+        ], 404);
+    }
 
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Email address not found'
-            ], 404);
-        }
+    // 4 இலக்க OTP-ஐ உருவாக்குதல்
+    $otp = rand(1000, 9990);
 
-        $otp = rand(1000, 9999);
+    // OTP மற்றும் Email-ஐ செஷனில் சேமித்தல் (3 நிமிடங்களுக்கு மட்டும் செல்லுபடியாகும்)
+    Session::put('login_email', $request->email);
+    Session::put('login_otp', $otp);
+    Session::put('otp_expires_at', now()->addMinutes(3));
 
-        $user->email_otp = $otp;
-        $user->email_otp_expires_at = Carbon::now()->addMinutes(5);
-        $user->save();
-
-        Mail::to($user->email)->send(new \App\Mail\OtpMail($otp));
+    try {
+        // பயனர் மின்னஞ்சலுக்கு OTP அனுப்புதல்
+        Mail::send([], [], function ($message) use ($user, $otp) {
+            $message->to($user->email)
+                ->subject('Your Login OTP Verification Code')
+                ->html("<h3>Your Login OTP Code is: <b>{$otp}</b></h3><p>This code is valid for 3 minutes.</p>");
+        });
 
         return response()->json([
             'success' => true,
-            'message' => 'OTP sent to email address successfully'
-        ]);
-    }
-
-    // 5. Verify Email OTP and sign-in
-    public function verifyEmailOtp(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'otp' => 'required|digits:4'
+            'message' => 'OTP has been successfully sent to your email address.',
         ]);
 
-        $user = User::where('email', $request->email)
-                    ->whereNotIn('role', [1])
-                    ->first();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User registry match failure'
-            ], 404);
-        }
-
-        if ($user->email_otp != $request->otp) {
-            return response()->json([
-                'success' => false,
-                'message' => 'The email token submitted is invalid'
-            ], 422);
-        }
-
-        if (Carbon::now()->gt($user->email_otp_expires_at)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Email OTP expired'
-            ], 422);
-        }
-
-        $user->email_otp = null;
-        $user->email_otp_expires_at = null;
-        $user->save();
-
-        Auth::login($user);
-        $request->session()->regenerate();
-
+    } catch (\Exception $e) {
         return response()->json([
-            'success' => true,
-            'redirect_url' => route('index')
-        ]);
+            'success' => false,
+            'message' => 'Failed to send email. Please try again later.',
+        ], 500);
     }
+}
 
+// 2. மின்னஞ்சல் OTP-ஐ சரிபார்த்து லாகின் செய்யும் மெத்தட்
+// public function verifyEmailOtp(Request $request)
+// {
+//     $request->validate([
+//         'email' => 'required|email',
+//         'otp' => 'required|numeric',
+//     ]);
+
+//     $sessionEmail = Session::get('login_email');
+//     $sessionOtp = Session::get('login_otp');
+//     $expiresAt = Session::get('otp_expires_at');
+
+//     // செஷனில் உள்ள விபரங்களை சரிபார்த்தல்
+//     if (!$sessionOtp || !$sessionEmail || now()->greaterThan($expiresAt)) {
+//         return response()->json([
+//             'success' => false,
+//             'message' => 'OTP has expired. Please request a new one.',
+//         ], 422);
+//     }
+
+//     if ($request->email !== $sessionEmail || intval($request->otp) !== intval($sessionOtp)) {
+//         return response()->json([
+//             'success' => false,
+//             'message' => 'Invalid OTP code entered.',
+//         ], 401);
+//     }
+
+//     // சரிபார்ப்பு முடிந்ததும் செஷனை அழித்துவிட்டு லாகின் செய்தல்
+//     Session::forget(['login_email', 'login_otp', 'otp_expires_at']);
+
+//     $user = User::where('email', $request->email)->first();
+    
+//     if ($user) {
+//         Auth::login($user);
+//         $request->session()->regenerate();
+
+//         return response()->json([
+//             'success' => true,
+//             'message' => 'Authentication successful! Redirecting...',
+//             'redirect_url' => url('/'),
+//         ]);
+//     }
+
+//     return response()->json([
+//         'success' => false,
+//         'message' => 'User login failed.',
+//     ], 500);
+// }
 
     public function submit(Request $request)
 {

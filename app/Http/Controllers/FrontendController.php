@@ -38,8 +38,10 @@ class FrontendController extends Controller
    public function index()
     {
         $banner = Banner::where('status', 1)->get();
+        $categories = Category::where('status', 1)->get();
         return view('pages.index', [
-            'banner' => $banner
+            'banner' => $banner,
+            'categories' => $categories
         ]);
     }
    public function mostfetchProducts(Request $request)
