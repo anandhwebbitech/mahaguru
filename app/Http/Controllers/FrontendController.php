@@ -1000,32 +1000,33 @@ public function getCartItems()
     $subtotal = floatval($request->subtotal);
     $couponCode = $request->coupon_code;
 
-    // 1️⃣ முதலில் டிஸ்கவுண்ட் தொகையைக் கணக்கிடுதல் (Default 0)
     $discount = 0;
     if (!empty($couponCode)) {
-        // செஷன் அல்லது டேட்டாபேஸ் மூலம் கூப்பனைச் சரிபார்க்கவும்
-        $coupon = Coupon::where('code', $couponCode)->where('status', 1)->first();
+        
+        $coupon = Coupon::where('coupon_code', $couponCode)
+                        ->where('status', 1)
+                        ->first();
+                        
         if ($coupon) {
-            if ($coupon->type == 'fixed') {
-                $discount = floatval($coupon->value);
-            } elseif ($coupon->type == 'percent') {
-                $discount = ($subtotal * floatval($coupon->value)) / 100;
+            $discountType = strtolower($coupon->discount_type);
+            
+            if ($discountType === 'percentage' || $coupon->discount_type == 1) {
+                $discount = ($subtotal * floatval($coupon->discount)) / 100;
+            } else {
+                $discount = floatval($coupon->discount);
+            }
+
+            if ($coupon->max_discount && $discount > $coupon->max_discount) {
+                $discount = $coupon->max_discount;
             }
         }
     }
+    $taxable_amount = max($subtotal - $discount, 0);
 
-    // கூப்பனை கழித்த பிறகு இருக்கும் தொகை (இதன் மீதுதான் ஜிஎஸ்டி கணக்கிட வேண்டும்)
-    $taxable_amount = $subtotal - $discount;
-    if ($taxable_amount < 0) {
-        $taxable_amount = 0;
-    }
-
-    // 2️⃣ ஷிப்பிங் சார்ஜ் கணக்கிடுதல்
     $shipping = ShippingCharge::where('country', $country)
                               ->where('state', $state)
                               ->first();
 
-    // குறிப்பிட்ட மாநிலம் இல்லை என்றால் 'Other States' செக் செய்யும்
     if (!$shipping) {
         $shipping = ShippingCharge::where('country', $country)
                                   ->where('state', 'Other States')
@@ -1034,26 +1035,20 @@ public function getCartItems()
 
     $shipping_amount = $shipping ? floatval($shipping->charge_amount) : 0;
 
-    // 3️⃣ ஜிஎஸ்டி (GST) கணக்கிடுதல் (உதாரணத்திற்கு 18% வரி என வைத்துக்கொள்வோம்)
+    // 3️⃣ ஜிஎஸ்டி (GST) கணக்கிடுதல் (18% வரி)
     $gst_rate = 18; 
     $cgst = 0;
     $sgst = 0;
     $igst = 0;
 
     if (trim(strtolower($country)) === 'india') {
-        // கஸ்டமர் தமிழ்நாடாக இருந்தால் CGST (9%) + SGST (9%)
         if (trim(strtolower($state)) === 'tamil nadu') {
             $half_rate = $gst_rate / 2;
             $cgst = ($taxable_amount * $half_rate) / 100;
             $sgst = ($taxable_amount * $half_rate) / 100;
         } else {
-            // இந்தியாவின் மற்ற மாநிலங்கள் என்றால் IGST (18%)
             $igst = ($taxable_amount * $gst_rate) / 100;
         }
-    } else {
-        $cgst = 0;
-        $sgst = 0;
-        $igst = 0;
     }
 
     $final_total = $taxable_amount + $shipping_amount + $cgst + $sgst + $igst;

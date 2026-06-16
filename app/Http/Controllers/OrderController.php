@@ -126,9 +126,9 @@ class OrderController extends Controller
             $userId = auth()->id();
 
             $cartItems = Cart::with([
-    'product',
-    'variant'
-])
+                'product',
+                'variant'
+            ])
                 ->where('user_id', $userId)
                 ->where('status', 1)
                 ->get();
@@ -219,7 +219,6 @@ class OrderController extends Controller
                 'order_ids'    => collect($orders)->pluck('id'),
                 'total_amount' => round($totalPayable, 2)
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -337,7 +336,7 @@ class OrderController extends Controller
                 'status' => 1,
                 'shipping_status' => 1,
                 'delivery_date' => now()->addDays(2),
-                 'payment_status' => '1',
+                'payment_status' => '1',
             ]);
 
             // ✅ Clear cart AFTER success
@@ -352,7 +351,6 @@ class OrderController extends Controller
                 'status' => 'success',
                 'payment_id' => $payment->id
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -361,7 +359,8 @@ class OrderController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
-    }    public function cancel(Request $request, $id)
+    }
+    public function cancel(Request $request, $id)
     {
         $order = Order::findOrFail($id);
         $order->status = 3; // Cancelled
@@ -425,7 +424,7 @@ class OrderController extends Controller
         $reviews = Review::where('product_id', $id)
             ->where('status', 1)
             ->latest()
-            ->get(); 
+            ->get();
 
         return view('pages.product-detail', compact(
             'product',
@@ -623,131 +622,130 @@ class OrderController extends Controller
     //         'message' => 'Coupon applied successfully'
     //     ]);
     // }
+
     public function applyCoupon(Request $request)
-{
-    $request->validate([
-        'coupon_code' => 'required|string'
-    ]);
+    {
+        $request->validate([
+            'coupon_code' => 'required|string',
+            'subtotal'    => 'required|numeric'
+        ]);
 
-    $coupon = Coupon::where('coupon_code', $request->coupon_code)
-        ->where('status', 1)
-        ->first();
+        $coupon = Coupon::where('coupon_code', $request->coupon_code)
+            ->where('status', 1)
+            ->first();
 
-    if (!$coupon) {
+        if (!$coupon) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Invalid coupon code'
+            ], 422); // AJAX-க்கு 422 Unprocessable Entity கொடுப்பது நல்லது
+        }
+
+        if ($coupon->expiry_date && Carbon::now()->gt(Carbon::parse($coupon->expiry_date))) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Coupon expired'
+            ], 422);
+        }
+
+        if ($coupon->usage_limit !== null && $coupon->used_count >= $coupon->usage_limit) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Coupon usage limit exceeded'
+            ], 422);
+        }
+
+        $cartItems = Cart::with('product')
+            ->where('user_id', auth()->id())
+            ->where('status', 1)
+            ->get();
+
+        if ($cartItems->isEmpty()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Cart is empty'
+            ], 422);
+        }
+
+        $subtotal  = 0;
+        $gstTotal  = 0;
+        $cartTotal = 0;
+
+        foreach ($cartItems as $item) {
+            $price = floatval($item->total_amount); // அசல் தயாரிப்பு விலை
+            $taxPercentage = $item->product->tax ?? 0;
+
+            $itemGST   = ($price * $taxPercentage) / 100;
+            $itemTotal = $price + $itemGST;
+
+            $subtotal  += $price;
+            $gstTotal  += $itemGST;
+            $cartTotal += $itemTotal;
+        }
+
+        if ($cartTotal < $coupon->min_order_amount) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Minimum order amount should be ₹' . number_format($coupon->min_order_amount, 2)
+            ], 422);
+        }
+
+        $discount = 0;
+        $discountType = strtolower($coupon->discount_type);
+
+        if ($discountType === 'percentage' || $coupon->discount_type == 1) {
+            $discount = ($cartTotal * $coupon->discount) / 100;
+        } else {
+            $discount = $coupon->discount;
+        }
+
+        if ($coupon->max_discount && $discount > $coupon->max_discount) {
+            $discount = $coupon->max_discount;
+        }
+
+        if ($discount > $cartTotal) {
+            $discount = $cartTotal;
+        }
+
+        $finalTotal = max($cartTotal - $discount, 0);
+
+        session([
+            'applied_coupon' => [
+                'id'          => $coupon->id,
+                'code'        => $coupon->coupon_code,
+                'subtotal'    => round($subtotal, 2),
+                'gst_total'   => round($gstTotal, 2),
+                'cart_total'  => round($cartTotal, 2),
+                'discount'    => round($discount, 2),
+                'final_total' => round($finalTotal, 2),
+            ]
+        ]);
+
         return response()->json([
-            'status' => 'error',
-            'message' => 'Invalid coupon code'
-        ], 404);
-    }
-
-    if (Carbon::now()->gt($coupon->expiry_date)) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Coupon expired'
-        ], 400);
-    }
-
-    if ($coupon->used_count >= $coupon->usage_limit) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Coupon usage limit exceeded'
-        ], 400);
-    }
-
-    $cartItems = Cart::with('product')
-        ->where('user_id', auth()->id())
-        ->where('status', 1)
-        ->get();
-
-    if ($cartItems->isEmpty()) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Cart is empty'
-        ], 400);
-    }
-
-    $subtotal = 0;
-    $gstTotal = 0;
-    $cartTotal = 0;
-
-    /*
-    |--------------------------------------------------------------------------
-    | Calculate Total Including Product GST
-    |--------------------------------------------------------------------------
-    */
-    foreach ($cartItems as $item) {
-        $price = $item->total_amount; // Base price
-        $taxPercentage = $item->product->tax ?? 0;
-
-        $itemGST = ($price * $taxPercentage) / 100;
-        $itemTotal = $price + $itemGST;
-
-        $subtotal += $price;
-        $gstTotal += $itemGST;
-        $cartTotal += $itemTotal;
-    }
-
-    if ($cartTotal < $coupon->min_order_amount) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Minimum order amount not reached'
-        ], 400);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Apply Discount On Total Including GST
-    |--------------------------------------------------------------------------
-    */
-    if ($coupon->discount_type == 1) {
-        $discount = ($cartTotal * $coupon->discount) / 100;
-    } else {
-        $discount = $coupon->discount;
-    }
-
-    if ($coupon->max_discount && $discount > $coupon->max_discount) {
-        $discount = $coupon->max_discount;
-    }
-
-    $finalTotal = max($cartTotal - $discount, 0);
-
-    session([
-        'applied_coupon' => [
-            'id'          => $coupon->id,
-            'code'        => $coupon->coupon_code,
+            'status'      => 'success',
             'subtotal'    => round($subtotal, 2),
             'gst_total'   => round($gstTotal, 2),
             'cart_total'  => round($cartTotal, 2),
             'discount'    => round($discount, 2),
             'final_total' => round($finalTotal, 2),
-        ]
-    ]);
-
-    return response()->json([
-        'status'      => 'success',
-        'subtotal'    => round($subtotal, 2),
-        'gst_total'   => round($gstTotal, 2),
-        'cart_total'  => round($cartTotal, 2),
-        'discount'    => round($discount, 2),
-        'final_total' => round($finalTotal, 2),
-        'message'     => 'Coupon applied successfully'
-    ]);
-}
+            'message'     => 'Coupon applied successfully'
+        ]);
+    }
     // 
 
     public function invoice($id)
-{
-    $order = Order::with([
-        'user',
-        'product',
-        'shippingAddress'
-    ])->findOrFail($id);
+    {
+        $order = Order::with([
+            'user',
+            'product',
+            'shippingAddress'
+        ])->findOrFail($id);
 
-    // Optional security check
-    if (auth()->id() != $order->user_id) {
-        abort(403);
+        // Optional security check
+        if (auth()->id() != $order->user_id) {
+            abort(403);
+        }
+
+        return view('pages.invoice', compact('order'));
     }
-
-    return view('pages.invoice', compact('order'));
-}
 }

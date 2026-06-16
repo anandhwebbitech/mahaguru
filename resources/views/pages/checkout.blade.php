@@ -54,28 +54,29 @@
             color: #0d6efd;
             font-weight: 600;
         }
-        #accordionFaq .accordion-item{
-            border-radius:12px;
-            overflow:hidden;
-            border:1px solid #e5e7eb;
+
+        #accordionFaq .accordion-item {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
         }
 
-        #accordionFaq .accordion-button{
-            font-size:16px;
-            font-weight:600;
+        #accordionFaq .accordion-button {
+            font-size: 16px;
+            font-weight: 600;
         }
 
-        #accordionFaq .accordion-button:not(.collapsed){
-            color:#111827;
-            background:#fff;
+        #accordionFaq .accordion-button:not(.collapsed) {
+            color: #111827;
+            background: #fff;
         }
 
-        #accordionFaq .accordion-button:focus{
-            box-shadow:none;
+        #accordionFaq .accordion-button:focus {
+            box-shadow: none;
         }
 
-        #addAdd_btn{
-            white-space:nowrap;
+        #addAdd_btn {
+            white-space: nowrap;
         }
     </style>
     <div class="page-content bg-light">
@@ -120,10 +121,10 @@
                                         </button>
                                     </h2>
                                     <a href="{{ route('userdashboard') }}">
-                                    <button class="btn btn-warning btn-sm rounded-pill px-3 ms-3" id="addAdd_btn">
-                                        <i class="fa-solid fa-plus me-1"></i>
-                                        Add Address
-                                    </button></a>
+                                        <button class="btn btn-warning btn-sm rounded-pill px-3 ms-3" id="addAdd_btn">
+                                            <i class="fa-solid fa-plus me-1"></i>
+                                            Add Address
+                                        </button></a>
 
                                 </div>
 
@@ -147,23 +148,24 @@
                     <div class="col-xl-4 side-bar">
                         <h4 class="title m-b15">Your Order</h4>
                         <div class="order-detail sticky-top">
-                            <div id="sidebarCartList">
+                            <div id="sidebarCartList"></div>
 
-                            </div>
                             <div class="coupon-box mb-3">
                                 <div class="input-group">
                                     <input type="text" id="coupon_code" class="form-control"
                                         placeholder="Enter coupon code">
-                                    <button class="btn btn-secondary" id="applyCouponBtn">
-                                        Apply
-                                    </button>
+                                    <button class="btn btn-secondary" id="applyCouponBtn">Apply</button>
                                 </div>
                             </div>
+
                             <table>
                                 <tbody>
                                     <tr class="subtotal">
                                         <td>Subtotal</td>
-                                        <td class="price" id="overall_total">₹0</td>
+                                        <td class="price" id="overall_total" data-original-subtotal="{{ $subtotal ?? 0 }}"
+                                            data-product-gst="{{ $gstTotal ?? 0 }}" data-cart-total="{{ $cartTotal ?? 0 }}">
+                                            ₹{{ number_format($subtotal ?? 0, 2, '.', '') }}
+                                        </td>
                                     </tr>
 
                                     <tr class="coupon">
@@ -174,17 +176,22 @@
                                         <td>Shipping Charge</td>
                                         <td class="price" id="shipping_amount">₹0.00</td>
                                     </tr>
-                                <tbody id="gst_section"></tbody>
-                                <tr class="total">
-                                    <td>Total</td>
-                                    <td class="price" id="overallTotal">₹00.00</td>
-
-                                </tr>
+                                </tbody>
+                                <tbody id="gst_section">
+                                </tbody>
+                                <tbody>
+                                    <tr class="total">
+                                        <td>Total</td>
+                                        <td class="price" id="overallTotal">
+                                            ₹{{ number_format($cartTotal ?? 0, 2, '.', '') }}</td>
+                                    </tr>
                                 </tbody>
                             </table>
-                            <p class="text">Your personal data will be used to process your order, support your
-                                experience throughout this website, and for other purposes described in our <a
+
+                            <p class="text">Your personal data will be used to process your order, support your experience
+                                throughout this website, and for other purposes described in our <a
                                     href="{{ route('privacy') }}">privacy policy.</a></p>
+
                             <div class="form-group">
                                 <div class="custom-control custom-checkbox d-flex m-b15">
                                     <input type="checkbox" name="terms_conditions" class="form-check-input"
@@ -193,18 +200,7 @@
                                         website terms and conditions </label>
                                 </div>
                             </div>
-                            {{-- <div class="payment-method mt-3 mb-3">
-                                <h6>Select Payment Method</h6>
 
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="card p-2 text-center selectable " data-method="online">
-                                            <img src="{{ asset('public/assets/images/razorpay.png') }}" style="height:80px">
-                                            <p class="mb-0">Online Payment</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div> --}}
                             <input type="hidden" id="selected_address_id" name="selected_address_id">
                             <button type="submit" id="place_order_btn" class="btn btn-secondary w-100">CONTINUE</button>
                         </div>
@@ -297,18 +293,30 @@
                 });
             }
 
+            function getOriginalSubtotal() {
+                let baseSubtotal = parseFloat($("#overall_total").data("original-subtotal"));
+                if (!baseSubtotal) {
+                    baseSubtotal = parseFloat($("#overall_total").text().replace("₹", "")) || 0;
+                    $("#overall_total").data("original-subtotal", baseSubtotal);
+                }
+                return baseSubtotal;
+            }
+
+            // 🌟 அசல் கார்ட் டோட்டல் (தயாரிப்பு விலை + தயாரிப்பு ஜிஎஸ்டி சேர்ந்த தொகை)
+            function getOriginalCartTotal() {
+                let cartTotal = parseFloat($("#overall_total").data("cart-total"));
+                return cartTotal ? cartTotal : getOriginalSubtotal();
+            }
+
             function loadAddresses() {
                 $.ajax({
                     url: "{{ route('get.addresses') }}",
                     method: "GET",
                     success: function(response) {
-
                         if (response.status !== "success") return;
-
                         let html = "";
 
                         if (!response.addresses || response.addresses.length === 0) {
-
                             html = `
                     <div class="col-12">
                         <div class="alert alert-info text-center">
@@ -316,26 +324,20 @@
                         </div>
                     </div>
                 `;
-
                             $("#deliveryAddressContainer").html(html);
                             togglePlaceOrderButton();
                             return;
                         }
 
                         response.addresses.forEach(function(addr) {
-
                             html += `
                 <div class="col-md-6 mb-3">
                     <div class="address-box p-3 rounded shadow-sm border" data-id="${addr.id}">
-                        
                         <div class="d-flex justify-content-between">
                             <strong>
                                 ${addr.first_name || ''} ${addr.last_name || ''}
-                                ${addr.is_default == 1 
-                                    ? '<span class="badge bg-success ms-2">Default</span>'
-                                    : ''}
+                                ${addr.is_default == 1 ? '<span class="badge bg-success ms-2">Default</span>' : ''}
                             </strong>
-
                             <input type="radio"
                                 name="selected_address"
                                 value="${addr.id}"
@@ -344,7 +346,6 @@
                                 class="select-address"
                                 ${addr.is_default == 1 ? 'checked' : ''}>
                         </div>
-
                         <div class="mt-2 small">
                             ${addr.street || ''}<br>
                             ${addr.city || ''}, ${addr.state || ''} - ${addr.zip_code || ''}<br>
@@ -352,16 +353,11 @@
                             Phone: ${addr.phone || ''}<br>
                             Email: ${addr.email || ''}
                         </div>
-
                         <div class="d-flex justify-content-end align-items-center mt-2">
-                            <button
-                                class="btn btn-sm text-danger remove-address-btn"
-                                data-id="${addr.id}"
-                                title="Delete Address">
+                            <button class="btn btn-sm text-danger remove-address-btn" data-id="${addr.id}" title="Delete Address">
                                 🗑️
                             </button>
                         </div>
-
                     </div>
                 </div>`;
                         });
@@ -370,15 +366,12 @@
 
                         // Default address auto load
                         let selected = $("input[name='selected_address']:checked");
-
                         if (selected.length) {
-
                             loadAddressDetails(
                                 selected.val(),
                                 selected.data("country"),
                                 selected.data("state")
                             );
-
                             togglePlaceOrderButton();
                         }
                     }
@@ -386,7 +379,6 @@
             }
 
             function loadAddressDetails(addressId, country, state) {
-
                 if (!addressId) return;
                 console.log("Address Loaded:", addressId);
                 $("#selected_address_id").val(addressId);
@@ -394,21 +386,15 @@
                 $.ajax({
                     url: "{{ url('/address') }}/" + addressId,
                     method: "GET",
-
                     success: function(res) {
-
                         if (!res.address) return;
-
                         let a = res.address;
 
                         $('[name="first_name"]').val(a.first_name || '');
                         $('[name="last_name"]').val(a.last_name || '');
                         $('[name="country"]').val(a.country_region || '');
                         $('[name="state"]').val(a.state || '');
-
-                        // Check your field name
                         $('[name="address_line1"]').val(a.street || '');
-
                         $('[name="city"]').val(a.city || '');
                         $('[name="zip_code"]').val(a.zip_code || '');
                         $('[name="phone"]').val(a.phone || '');
@@ -416,33 +402,20 @@
 
                         addressGst(addressId, country, state);
 
-                        $('#addressForm input, #addressForm select, #addressForm textarea')
-                            .prop("disabled", true);
-
+                        $('#addressForm input, #addressForm select, #addressForm textarea').prop("disabled", true);
                         $("#saveAddressBtn").hide();
                     }
                 });
             }
 
-
-
             function togglePlaceOrderButton() {
-
-                let addressSelected =
-                    $("input[name='selected_address']:checked").length > 0;
-
-                let cartOk = cartItemCount > 0;
-
-                $("#place_order_btn").prop(
-                    "disabled",
-                    !(addressSelected && cartOk)
-                );
+                let addressSelected = $("input[name='selected_address']:checked").length > 0;
+                let cartOk = (typeof cartItemCount !== 'undefined') ? cartItemCount > 0 : true;
+                $("#place_order_btn").prop("disabled", !(addressSelected && cartOk));
             }
 
             $(document).on("change", ".select-address", function() {
-
                 togglePlaceOrderButton();
-
                 loadAddressDetails(
                     $(this).val(),
                     $(this).data("country"),
@@ -453,7 +426,7 @@
             function addressGst(addressId, country = '', state = '') {
                 if (!addressId) return;
 
-                let subtotal = parseFloat($("#overall_total").text().replace("₹", "")) || 0;
+                let subtotal = getOriginalSubtotal();
                 let couponCode = $("#coupon_code").val().trim();
 
                 $.ajax({
@@ -461,8 +434,8 @@
                     method: "POST",
                     data: {
                         address_id: addressId,
-                        country: country, // எ.கா: India
-                        state: state, // எ.கா: Tamil Nadu
+                        country: country,
+                        state: state,
                         subtotal: subtotal,
                         coupon_code: couponCode,
                         _token: "{{ csrf_token() }}"
@@ -474,21 +447,26 @@
                         if (res.status === "success") {
                             $("#coupon_amount").text("₹" + (res.discount || 0).toFixed(2));
 
-                            // 💰 டேட்டாபேஸில் மேட்ச் ஆன ஷிப்பிங் சார்ஜ் இங்கு அப்டேட் ஆகும்
                             let shippingCharge = parseFloat(res.shipping_charge) || 0;
                             $("#shipping_amount").text("₹" + shippingCharge.toFixed(2));
 
                             let gstHtml = "";
                             if (res.cgst > 0) {
-                                gstHtml += `<tr><td>CGST</td><td class="price">₹${res.cgst.toFixed(2)}</td></tr>`;
-                                gstHtml += `<tr><td>SGST</td><td class="price">₹${res.sgst.toFixed(2)}</td></tr>`;
+                                gstHtml +=
+                                    `<tr><td>CGST</td><td class="price">₹${parseFloat(res.cgst).toFixed(2)}</td></tr>`;
+                                gstHtml +=
+                                    `<tr><td>SGST</td><td class="price">₹${parseFloat(res.sgst).toFixed(2)}</td></tr>`;
                             }
                             if (res.igst > 0) {
-                                gstHtml += `<tr><td>IGST</td><td class="price">₹${res.igst.toFixed(2)}</td></tr>`;
+                                gstHtml +=
+                                    `<tr><td>IGST</td><td class="price">₹${parseFloat(res.igst).toFixed(2)}</td></tr>`;
                             }
                             $("#gst_section").html(gstHtml);
 
-                            $("#overallTotal").text("₹" + res.final_total.toFixed(2));
+                            // இரண்டு டோட்டல் கண்டெய்னர்களையும் ஒரே மதிப்பில் ஒத்திசைக்கிறோம்
+                            $("#overall_total").text("₹" + subtotal.toFixed(
+                            2)); // சப்டோட்டல் மாறாமல் அப்படியே இருக்கும்
+                            $("#overallTotal").text("₹" + parseFloat(res.final_total).toFixed(2));
                         }
                     },
                     error: function() {
@@ -507,7 +485,7 @@
                     return;
                 }
 
-                let subtotal = parseFloat($("#overall_total").text().replace("₹", "")) || 0;
+                let subtotal = getOriginalSubtotal();
 
                 $.ajax({
                     url: "{{ route('coupon.apply') }}",
@@ -527,20 +505,25 @@
                     success: function(res) {
                         Swal.close();
                         if (res.status === "success") {
-                            $("#coupon_amount").text("₹" + res.discount);
+                            $("#coupon_amount").text("₹" + parseFloat(res.discount).toFixed(2));
+
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Coupon Applied',
                                 text: `You saved ₹${res.discount}`
                             });
 
-                            // கூப்பனுக்குப் பிறகு மீண்டும் ஷிப்பிங் மற்றும் ஜிஎஸ்டி கணக்கிடப்படுகிறது
                             let $selectedRadio = $("input[name='selected_address']:checked");
                             if ($selectedRadio.length > 0) {
+                                // முகவரி ஏற்கனவே இருந்தால், மீண்டும் ஷிப்பிங் மற்றும் பேக்கேண்ட் ஜிஎஸ்டியுடன் இறுதித் தொகையைக் கணக்கிட அனுப்பவும்
                                 addressGst($selectedRadio.val(), $selectedRadio.data("country"),
                                     $selectedRadio.data("state"));
                             } else {
-                                let final = subtotal - res.discount;
+                                // முகவரி இல்லாத சூழலில், அசல் கார்ட் தொகையிலிருந்து (தயாரிப்பு + தயாரிப்பு ஜிஎஸ்டி) கூப்பனைக் கழிக்கிறோம்
+                                let originalCartTotal = getOriginalCartTotal();
+                                let final = originalCartTotal - parseFloat(res.discount);
+                                if (final < 0) final = 0;
+
                                 $("#overallTotal").text("₹" + final.toFixed(2));
                             }
                         }
@@ -563,7 +546,7 @@
                 paymentMethod = $(this).data("method");
             });
 
-            $(document).on("click", "#place_order_btn", function (e) {
+            $(document).on("click", "#place_order_btn", function(e) {
                 e.preventDefault();
 
                 let $btn = $(this);
@@ -602,7 +585,7 @@
                         _token: "{{ csrf_token() }}"
                     },
 
-                    success: function (res) {
+                    success: function(res) {
 
                         if (res.status === "success" &&
                             Array.isArray(res.order_ids) &&
@@ -642,7 +625,7 @@
                         }
                     },
 
-                    error: function (xhr) {
+                    error: function(xhr) {
 
                         let message = "Something went wrong. Please try again.";
 
