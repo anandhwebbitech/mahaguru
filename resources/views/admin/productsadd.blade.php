@@ -246,7 +246,7 @@
                         render: function(data) {
                             let imageUrl = "{{ asset('assets/images/no-image.png') }}";
                             if (data) {
-                                imageUrl = "{{ asset('public') }}/" + data; 
+                                imageUrl = "{{ asset('public/uploads/products/') }}/" + data; 
                             }
                             return `<img src="${imageUrl}" width="50" height="50" class="img-thumbnail" style="object-fit: cover;">`;
                         }
@@ -474,7 +474,7 @@
 
                         // 1. MAIN THUMBNAIL PREVIEW ஐக் காண்பித்தல் 👈
                         if (product.thumbnail) {
-                            let mainImgUrl = "{{ asset('public') }}/" + product.thumbnail;
+                            let mainImgUrl = "{{ asset('public/uploads/products/') }}/" + product.thumbnail;
                             $("#mainThumbnailPreview").attr('src', mainImgUrl);
                             $("#mainThumbnailPreviewContainer").show();
                         }
@@ -502,7 +502,7 @@
                                 let sizeName = $(`.size-checkbox[value='${variant.size_id}']`).data('name') || 'N/A';
 
                                 let imgHtml = variant.thumbnail 
-                                    ? `<img src="{{ asset('public') }}/${variant.thumbnail}" width="40" height="40" class="d-block mb-1 img-thumbnail" style="object-fit:cover;">` 
+                                    ? `<img src="{{ asset('public/uploads/products') }}/${variant.thumbnail}" width="40" height="40" class="d-block mb-1 img-thumbnail" style="object-fit:cover;">` 
                                     : '';
 
                                 let row = `
