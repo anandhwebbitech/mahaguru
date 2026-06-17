@@ -41,19 +41,19 @@
                             Add Product
                         </button>
                         <div class="table-responsive">
-                                <table id="productTable" class="table table-bordered table-striped">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Image</th>
-                                            <th>Name</th>
-                                            <th>Category</th>
-                                            <th>Material</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
+                            <table id="productTable" class="table table-bordered table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Image</th>
+                                        <th>Name</th>
+                                        <th>Category</th>
+                                        <th>Material</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -77,14 +77,16 @@
                                 <div class="row g-4">
                                     <div class="col-md-8">
                                         <label class="form-label fw-semibold">Product Name *</label>
-                                        <input type="text" name="name" class="form-control" placeholder="Enter product name" required>
+                                        <input type="text" name="name" class="form-control"
+                                            placeholder="Enter product name" required>
                                     </div>
 
                                     <div class="col-md-4">
                                         <label class="form-label fw-semibold">Main Thumbnail *</label>
                                         <input type="file" name="thumbnail" class="form-control" accept="image/*">
                                         <div id="mainThumbnailPreviewContainer" class="mt-2" style="display: none;">
-                                            <img id="mainThumbnailPreview" src="" width="60" height="60" class="img-thumbnail" style="object-fit: cover;">
+                                            <img id="mainThumbnailPreview" src="" width="60" height="60"
+                                                class="img-thumbnail" style="object-fit: cover;">
                                         </div>
                                     </div>
 
@@ -118,7 +120,8 @@
                                     <div class="col-md-3">
                                         <label class="form-label fw-semibold d-block">Status</label>
                                         <div class="form-check form-switch mt-2">
-                                            <input class="form-check-input" type="checkbox" name="status" value="1" checked>
+                                            <input class="form-check-input" type="checkbox" name="status" value="1"
+                                                checked>
                                             <label class="form-check-label fw-semibold text-success">Active Product</label>
                                         </div>
                                     </div>
@@ -127,15 +130,19 @@
                                         <label class="form-label fw-semibold d-block">Product Labels</label>
                                         <div class="d-flex gap-3">
                                             <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="is_new_arrival" value="1">
+                                                <input class="form-check-input" type="checkbox" name="is_new_arrival"
+                                                    value="1">
                                                 <label class="form-check-label text-primary fw-semibold">New Arrival</label>
                                             </div>
                                             <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="is_best_selling" value="1">
-                                                <label class="form-check-label text-warning fw-semibold">Best Selling</label>
+                                                <input class="form-check-input" type="checkbox" name="is_best_selling"
+                                                    value="1">
+                                                <label class="form-check-label text-warning fw-semibold">Best
+                                                    Selling</label>
                                             </div>
                                             <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="is_featured" value="1">
+                                                <input class="form-check-input" type="checkbox" name="is_featured"
+                                                    value="1">
                                                 <label class="form-check-label text-success fw-semibold">Featured</label>
                                             </div>
                                         </div>
@@ -157,7 +164,8 @@
                                         <div class="border rounded p-3" style="max-height:130px; overflow-y:auto;">
                                             @foreach ($colors as $color)
                                                 <div class="form-check">
-                                                    <input class="form-check-input color-checkbox" type="checkbox" value="{{ $color->id }}" data-name="{{ $color->name }}">
+                                                    <input class="form-check-input color-checkbox" type="checkbox"
+                                                        value="{{ $color->id }}" data-name="{{ $color->name }}">
                                                     <label class="form-check-label">{{ $color->name }}</label>
                                                 </div>
                                             @endforeach
@@ -165,11 +173,12 @@
                                     </div>
 
                                     <div class="col-md-6">
-                                        <label class="form-label fw-semibold">Sizes Selection</label>
+                                        <label class="form-label fw-semibold">Sizes Selection (Optional)</label>
                                         <div class="border rounded p-3" style="max-height:130px; overflow-y:auto;">
                                             @foreach ($sizes as $size)
                                                 <div class="form-check">
-                                                    <input class="form-check-input size-checkbox" type="checkbox" value="{{ $size->id }}" data-name="{{ $size->name }}">
+                                                    <input class="form-check-input size-checkbox" type="checkbox"
+                                                        value="{{ $size->id }}" data-name="{{ $size->name }}">
                                                     <label class="form-check-label">{{ $size->name }}</label>
                                                 </div>
                                             @endforeach
@@ -177,7 +186,8 @@
                                     </div>
 
                                     <div class="col-md-12">
-                                        <button type="button" class="btn btn-dark btn-sm mb-2" id="generateVariants">Generate Variants Matrix</button>
+                                        <button type="button" class="btn btn-dark btn-sm mb-2"
+                                            id="generateVariants">Generate Variants Matrix</button>
                                         <div class="table-responsive">
                                             <table class="table table-bordered align-middle" id="variantTable">
                                                 <thead class="table-light">
@@ -236,29 +246,36 @@
                     type: "GET",
                     dataSrc: "products"
                 },
-                columns: [
-                    {
+                columns: [{
                         data: null,
-                        render: function(data, type, row, meta) { return meta.row + 1; }
+                        render: function(data, type, row, meta) {
+                            return meta.row + 1;
+                        }
                     },
                     {
                         data: 'thumbnail',
                         render: function(data) {
                             let imageUrl = "{{ asset('assets/images/no-image.png') }}";
                             if (data) {
-                                imageUrl = "{{ asset('public/uploads/products/') }}/" + data; 
+                                imageUrl = "{{ asset('public/uploads/products/') }}/" + data;
                             }
                             return `<img src="${imageUrl}" width="50" height="50" class="img-thumbnail" style="object-fit: cover;">`;
                         }
                     },
-                    { data: 'product_name' },
-                    { 
-                        data: 'category',
-                        render: function(data) { return data ? data.name : '-'; }
+                    {
+                        data: 'product_name'
                     },
-                    { 
+                    {
+                        data: 'category',
+                        render: function(data) {
+                            return data ? data.name : '-';
+                        }
+                    },
+                    {
                         data: 'material',
-                        render: function(data) { return data ? data.name : '-'; }
+                        render: function(data) {
+                            return data ? data.name : '-';
+                        }
                     },
                     {
                         data: null,
@@ -274,77 +291,114 @@
                 ]
             });
 
-            $('.select2').select2({ width: '100%' });
+            $('.select2').select2({
+                width: '100%'
+            });
 
-            // Generate Variants Matrix Functionality
+            // Generate Variants Matrix Functionality (மாற்றியமைக்கப்பட்டுள்ளது 👈)
             $('#generateVariants').on('click', function() {
                 let selectedColors = [];
                 let selectedSizes = [];
 
                 $('.color-checkbox:checked').each(function() {
-                    selectedColors.push({ id: $(this).val(), name: $(this).data('name') });
+                    selectedColors.push({
+                        id: $(this).val(),
+                        name: $(this).data('name')
+                    });
                 });
 
                 $('.size-checkbox:checked').each(function() {
-                    selectedSizes.push({ id: $(this).val(), name: $(this).data('name') });
+                    selectedSizes.push({
+                        id: $(this).val(),
+                        name: $(this).data('name')
+                    });
                 });
 
-                if (selectedColors.length === 0 || selectedSizes.length === 0) {
-                    Swal.fire('Warning!', 'Please select at least one Color and one Size.', 'warning');
+                // குறைந்தது வண்ணமாவது தேர்ந்தெடுக்கப்பட வேண்டும்
+                if (selectedColors.length === 0 && selectedSizes.length === 0) {
+                    Swal.fire('Warning!', 'Please select at least one Color or Size.', 'warning');
                     return;
                 }
 
                 let tbody = $('#variantTable tbody');
-                tbody.empty(); 
+                tbody.empty();
                 let vIndex = 0;
 
-                selectedColors.forEach(function(color) {
+                // வண்ணங்கள் மற்றும் அளவுகள் இரண்டையும் இணைப்பதற்கான லாஜிக்
+                if (selectedColors.length > 0) {
+                    selectedColors.forEach(function(color) {
+                        if (selectedSizes.length > 0) {
+                            // வண்ணமும் அளவும் இரண்டும் இருந்தால்
+                            selectedSizes.forEach(function(size) {
+                                appendVariantRow(tbody, vIndex, color, size);
+                                vIndex++;
+                            });
+                        } else {
+                            // சாரி போன்ற பொருட்களுக்கு அளவு இல்லை, வண்ணம் மட்டும் இருந்தால்
+                            appendVariantRow(tbody, vIndex, color, null);
+                            vIndex++;
+                        }
+                    });
+                } else if (selectedSizes.length > 0) {
+                    // வண்ணம் இல்லாமல் அளவு மட்டும் இருந்தால் (தேவைப்பட்டால்)
                     selectedSizes.forEach(function(size) {
-                        let row = `
-                            <tr class="variant-row">
-                                <td>
-                                    <input type="hidden" name="variants[${vIndex}][color_id]" value="${color.id}">
-                                    <span class="badge bg-secondary">${color.name}</span>
-                                </td>
-                                <td>
-                                    <input type="hidden" name="variants[${vIndex}][size_id]" value="${size.id}">
-                                    <span class="badge bg-dark">${size.name}</span>
-                                </td>
-                                <td>
-                                    <input type="number" name="variants[${vIndex}][price]" class="form-control v-price" step="0.01" required placeholder="Price">
-                                </td>
-                                <td>
-                                    <input type="number" name="variants[${vIndex}][discount_percentage]" class="form-control v-discount" value="0" min="0" max="100" placeholder="%">
-                                </td>
-                                <td>
-                                    <input type="number" name="variants[${vIndex}][discount_price]" class="form-control v-offer-price" step="0.01" readonly value="0.00">
-                                </td>
-                                <td>
-                                    <input type="number" name="variants[${vIndex}][gst]" class="form-control" value="0" required placeholder="GST %">
-                                </td>
-                                <td>
-                                    <input type="number" name="variants[${vIndex}][stock]" class="form-control" required placeholder="Qty">
-                                </td>
-                                <td>
-                                    <input type="file" name="variants[${vIndex}][image]" class="form-control" accept="image/*">
-                                </td>
-                                <td>
-                                    <button type="button" class="btn btn-danger btn-sm remove-row">X</button>
-                                </td>
-                            </tr>
-                        `;
-                        tbody.append(row);
+                        appendVariantRow(tbody, vIndex, null, size);
                         vIndex++;
                     });
-                });
+                }
             });
+
+            
+            // டேபிளில் வரிசைகளை சேர்க்கும் பொதுவான ஃபங்க்ஷன்
+            function appendVariantRow(tbody, index, color, size) {
+                let colorId = color ? color.id : '';
+                let colorName = color ? color.name : 'N/A';
+                let sizeId = size ? size.id : '';
+                let sizeName = size ? size.name : 'N/A';
+                let sizeBadge = size ? 'bg-dark' : 'bg-light text-muted';
+
+                let row = `
+                    <tr class="variant-row">
+                        <td>
+                            <input type="hidden" name="variants[${index}][color_id]" value="${colorId}">
+                            <span class="badge bg-secondary">${colorName}</span>
+                        </td>
+                        <td>
+                            <input type="hidden" name="variants[${index}][size_id]" value="${sizeId}">
+                            <span class="badge ${sizeBadge}">${sizeName}</span>
+                        </td>
+                        <td>
+                            <input type="number" name="variants[${index}][price]" class="form-control v-price" step="0.01" required placeholder="Price">
+                        </td>
+                        <td>
+                            <input type="number" name="variants[${index}][discount_percentage]" class="form-control v-discount" value="0" min="0" max="100" placeholder="%">
+                        </td>
+                        <td>
+                            <input type="number" name="variants[${index}][discount_price]" class="form-control v-offer-price" step="0.01" readonly value="0.00">
+                        </td>
+                        <td>
+                            <input type="number" name="variants[${index}][gst]" class="form-control" value="0" required placeholder="GST %">
+                        </td>
+                        <td>
+                            <input type="number" name="variants[${index}][stock]" class="form-control" required placeholder="Qty">
+                        </td>
+                        <td>
+                            <input type="file" name="variants[${index}][images][]" class="form-control" accept="image/*" multiple>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm remove-row">X</button>
+                        </td>
+                    </tr>
+                `;
+                tbody.append(row);
+            }
 
             // Live Offer Price Calculation
             $(document).on('keyup change', '.v-price, .v-discount', function() {
                 let row = $(this).closest('tr');
                 let price = parseFloat(row.find('.v-price').val()) || 0;
                 let discount = parseFloat(row.find('.v-discount').val()) || 0;
-                
+
                 let offerPrice = price - ((price * discount) / 100);
                 row.find('.v-offer-price').val(offerPrice.toFixed(2));
             });
@@ -361,18 +415,87 @@
             $("#addProductForm button[type='submit']").text("Add Product");
             $(".color-checkbox, .size-checkbox").prop("checked", false);
             $('#variantTable tbody').empty();
-            
-            // Add Modal-ல் Preview-வை மறைக்க வேண்டும் 👈
+
             $("#mainThumbnailPreviewContainer").hide();
             $("#mainThumbnailPreview").attr('src', '');
-            
+
             $("#productModal").modal('show');
+        }
+        function deleteProduct(productId) {
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to recover this product once it's deleted!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, Delete It!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+
+                if (result.isConfirmed) {
+
+                    $.ajax({
+                        url: "{{ url('admin/products/delete') }}/" + productId,
+                        type: "DELETE",
+                        data: {
+                            _token: "{{ csrf_token() }}"
+                        },
+
+                        success: function(response) {
+
+                            if (response.success) {
+
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: response.message ||
+                                        'Product has been deleted successfully.',
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+
+                                $('#productTable').DataTable().ajax.reload(null, false);
+
+                            } else {
+
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Failed!',
+                                    text: response.message ||
+                                        'Unable to delete the product.'
+                                });
+
+                            }
+                        },
+
+                        error: function(xhr) {
+
+                            console.error(xhr.responseText);
+
+                            let errorMessage =
+                                'A server error occurred. Please try again later.';
+
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                errorMessage = xhr.responseJSON.message;
+                            }
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error!',
+                                text: errorMessage
+                            });
+                        }
+                    });
+                }
+            });
         }
 
         // Form Submit Implementation
         $('#addProductForm').submit(function(e) {
             e.preventDefault();
-            
+
             if ($('#variantTable tbody tr').length === 0) {
                 Swal.fire({
                     title: 'Warning!',
@@ -406,28 +529,30 @@
                             $("#productModal").modal('hide');
                             $('#addProductForm')[0].reset();
                             $('#variantTable tbody').empty();
-                            location.reload(); 
+                            location.reload();
                         });
                     }
                 }
             });
         });
 
-        // Dynamic Subcategories Population Function (மாற்றப்பட்டுள்ளது 👈)
+        // Dynamic Subcategories Population Function
         function fetchSubcategories(category_id, selected_sub_id = null) {
-            if(!category_id) {
+            if (!category_id) {
                 $('#subcategory').html('<option value="">Select Sub Category</option>');
                 return;
             }
-            
+
             return $.ajax({
                 url: "{{ url('admin/get-subcategories') }}/" + category_id,
                 type: 'GET',
                 success: function(response) {
                     let html = '<option value="">Select Sub Category</option>';
                     $.each(response, function(index, item) {
-                        let selected = (selected_sub_id && selected_sub_id == item.id) ? 'selected' : '';
-                        html += `<option value="${item.id}" ${selected}>${item.sub_category_name}</option>`;
+                        let selected = (selected_sub_id && selected_sub_id == item.id) ? 'selected' :
+                            '';
+                        html +=
+                            `<option value="${item.id}" ${selected}>${item.sub_category_name}</option>`;
                     });
                     $('#subcategory').html(html);
                 }
@@ -445,8 +570,7 @@
             $("#addProductForm")[0].reset();
             $(".color-checkbox, .size-checkbox").prop("checked", false);
             $('#variantTable tbody').empty();
-            
-            // Preview இமேஜை ஆரம்பத்தில் ரீசெட் செய்ய 👈
+
             $("#mainThumbnailPreviewContainer").hide();
             $("#mainThumbnailPreview").attr('src', '');
 
@@ -472,73 +596,99 @@
                         $("input[name='is_best_selling']").prop('checked', product.is_best_selling == 1);
                         $("input[name='is_featured']").prop('checked', product.is_featured == 1);
 
-                        // 1. MAIN THUMBNAIL PREVIEW ஐக் காண்பித்தல் 👈
                         if (product.thumbnail) {
                             let mainImgUrl = "{{ asset('public/uploads/products/') }}/" + product.thumbnail;
                             $("#mainThumbnailPreview").attr('src', mainImgUrl);
                             $("#mainThumbnailPreviewContainer").show();
                         }
 
-                        // 2. CATEGORY & SUBCATEGORY FETCHING (Timing Issue சரிசெய்யப்பட்டது) 👈
                         $("select[name='category_id']").val(product.category_id);
-                        if(product.category_id) {
-                            // Subcategory-ஐ லோட் செய்து, அதன்பின் அந்தப் ப்ராடக்ட்டின் குறிப்பிட்ட sub_category_id-ஐ செலக்ட் செய்கிறது
+                        if (product.category_id) {
                             fetchSubcategories(product.category_id, product.sub_category_id);
                         }
 
-                        // Variants லோடிங் லாஜிக்
                         if (product.variants && product.variants.length > 0) {
                             let tbody = $('#variantTable tbody');
-                            
+
                             product.variants.forEach(function(variant, vIndex) {
-                                if(variant.color_id) {
-                                    $(`.color-checkbox[value='${variant.color_id}']`).prop('checked', true);
+                                if (variant.color_id) {
+                                    $(`.color-checkbox[value='${variant.color_id}']`).prop('checked',
+                                        true);
                                 }
-                                if(variant.size_id) {
-                                    $(`.size-checkbox[value='${variant.size_id}']`).prop('checked', true);
+                                if (variant.size_id) {
+                                    $(`.size-checkbox[value='${variant.size_id}']`).prop('checked',
+                                        true);
                                 }
 
-                                let colorName = $(`.color-checkbox[value='${variant.color_id}']`).data('name') || 'N/A';
-                                let sizeName = $(`.size-checkbox[value='${variant.size_id}']`).data('name') || 'N/A';
+                                let colorName = $(`.color-checkbox[value='${variant.color_id}']`).data(
+                                    'name') || 'N/A';
+                                let sizeName = $(`.size-checkbox[value='${variant.size_id}']`).data(
+                                    'name') || 'N/A';
+                                let sizeBadge = variant.size_id ? 'bg-dark' : 'bg-light text-muted';
 
-                                let imgHtml = variant.thumbnail 
-                                    ? `<img src="{{ asset('public/uploads/products') }}/${variant.thumbnail}" width="40" height="40" class="d-block mb-1 img-thumbnail" style="object-fit:cover;">` 
-                                    : '';
+                                // மல்டிபிள் இமேஜ் பிரிவியூ லாஜிக் 👈
+                                let imgHtml = '';
+                                if (variant
+                                    .images
+                                    ) { // டேபிளில் ஃபீல்டு பெயர் 'images' என்று இருப்பதாக எடுத்துக்கொள்ளப்பட்டுள்ளது
+                                    let imageArray = [];
+                                    try {
+                                        // இமேஜஸ் JSON பார்மட்டில் இருந்தால்
+                                        imageArray = typeof variant.images === 'string' && variant
+                                            .images.startsWith('[') ?
+                                            JSON.parse(variant.images) :
+                                            variant.images.split(',');
+                                    } catch (e) {
+                                        imageArray = variant.images ? [variant.images] : [];
+                                    }
+
+                                    // அனைத்து பழைய படங்களையும் லூப் செய்து பிரிவியூ காட்டுகிறது
+                                    imageArray.forEach(function(img) {
+                                        if (img.trim() != "") {
+                                            imgHtml +=
+                                                `<img src="{{ asset('public/uploads/products') }}/${img.trim()}" width="40" height="40" class="me-1 mb-1 img-thumbnail" style="object-fit:cover; display:inline-block;">`;
+                                        }
+                                    });
+                                    if (imgHtml != "") {
+                                        imgHtml =
+                                            `<div class="d-block mb-1 variant-images-preview">${imgHtml}</div>`;
+                                    }
+                                }
 
                                 let row = `
-                                    <tr class="variant-row">
-                                        <td>
-                                            <input type="hidden" name="variants[${vIndex}][color_id]" value="${variant.color_id || ''}">
-                                            <span class="badge bg-secondary">${colorName}</span>
-                                        </td>
-                                        <td>
-                                            <input type="hidden" name="variants[${vIndex}][size_id]" value="${variant.size_id || ''}">
-                                            <span class="badge bg-dark">${sizeName}</span>
-                                        </td>
-                                        <td>
-                                            <input type="number" name="variants[${vIndex}][price]" class="form-control v-price" step="0.01" required value="${variant.price}">
-                                        </td>
-                                        <td>
-                                            <input type="number" name="variants[${vIndex}][discount_percentage]" class="form-control v-discount" min="0" max="100" value="${variant.discount_percentage || 0}">
-                                        </td>
-                                        <td>
-                                            <input type="number" name="variants[${vIndex}][discount_price]" class="form-control v-offer-price" step="0.01" readonly value="${variant.discount_price || 0.00}">
-                                        </td>
-                                        <td>
-                                            <input type="number" name="variants[${vIndex}][gst]" class="form-control" required value="${variant.gst || 0}">
-                                        </td>
-                                        <td>
-                                            <input type="number" name="variants[${vIndex}][stock]" class="form-control" required value="${variant.stock}">
-                                        </td>
-                                        <td>
-                                            ${imgHtml}
-                                            <input type="file" name="variants[${vIndex}][image]" class="form-control" accept="image/*">
-                                        </td>
-                                        <td>
-                                            <button type="button" class="btn btn-danger btn-sm remove-row">X</button>
-                                        </td>
-                                    </tr>
-                                `;
+                                        <tr class="variant-row">
+                                            <td>
+                                                <input type="hidden" name="variants[${vIndex}][color_id]" value="${variant.color_id || ''}">
+                                                <span class="badge bg-secondary">${colorName}</span>
+                                            </td>
+                                            <td>
+                                                <input type="hidden" name="variants[${vIndex}][size_id]" value="${variant.size_id || ''}">
+                                                <span class="badge ${sizeBadge}">${sizeName}</span>
+                                            </td>
+                                            <td>
+                                                <input type="number" name="variants[${vIndex}][price]" class="form-control v-price" step="0.01" required value="${variant.price}">
+                                            </td>
+                                            <td>
+                                                <input type="number" name="variants[${vIndex}][discount_percentage]" class="form-control v-discount" min="0" max="100" value="${variant.discount_percentage || 0}">
+                                            </td>
+                                            <td>
+                                                <input type="number" name="variants[${vIndex}][discount_price]" class="form-control v-offer-price" step="0.01" readonly value="${variant.discount_price || 0.00}">
+                                            </td>
+                                            <td>
+                                                <input type="number" name="variants[${vIndex}][gst]" class="form-control" required value="${variant.gst || 0}">
+                                            </td>
+                                            <td>
+                                                <input type="number" name="variants[${vIndex}][stock]" class="form-control" required value="${variant.stock}">
+                                            </td>
+                                            <td>
+                                                ${imgHtml}
+                                                <input type="file" name="variants[${vIndex}][images][]" class="form-control" accept="image/*" multiple>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-row">X</button>
+                                            </td>
+                                        </tr>
+                                    `;
                                 tbody.append(row);
                             });
                         }

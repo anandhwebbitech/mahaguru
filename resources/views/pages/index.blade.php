@@ -518,81 +518,100 @@
         }
 
         // Fetch Popular Products Grid
-        function fetchProducts() {
-            let data = {};
-            if ($("#slider-margin-value-min2").length && $("#slider-margin-value-max2").length) {
-                let minPrice = parseInt($("#slider-margin-value-min2").text().replace(/[^\d]/g, ''));
-                let maxPrice = parseInt($("#slider-margin-value-max2").text().replace(/[^\d]/g, ''));
-                if (!isNaN(minPrice) && !isNaN(maxPrice)) {
-                    data.min_price = minPrice;
-                    data.max_price = maxPrice;
-                }
+       function fetchProducts() {
+    let data = {};
+    if ($("#slider-margin-value-min2").length && $("#slider-margin-value-max2").length) {
+        let minPrice = parseInt($("#slider-margin-value-min2").text().replace(/[^\d]/g, ''));
+        let maxPrice = parseInt($("#slider-margin-value-max2").text().replace(/[^\d]/g, ''));
+        if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+            data.min_price = minPrice;
+            data.max_price = maxPrice;
+        }
+    }
+
+    data.category = window.selectedCategory ?? "";
+
+    if ($("#productSearch").length && $("#productSearch").val().trim() !== "") {
+        data.search = $("#productSearch").val().trim();
+    }
+
+    $.ajax({
+        url: "{{ route('mostfetchProducts') }}",
+        type: "GET",
+        data: data,
+        success: function(response) {
+            let products = response.products;
+            
+            // 🛠️ FIX: Login-க்கு அப்பறம் வர்ற விஷ்லிஸ்ட் டேட்டாவை பாதுகாப்பா Array-வா மாத்துறோம்
+            let wishlistRaw = response.wishlist || [];
+            let wishlistArray = [];
+
+            if (Array.isArray(wishlistRaw)) {
+                wishlistArray = wishlistRaw.map(id => parseInt(id));
+            } else if (typeof wishlistRaw === 'object' && wishlistRaw !== null) {
+                // ஒருவேளை Backend-ல இருந்து Key-Value Object-ஆ வந்தா அதோட Keys-ஐ மட்டும் பிரிச்சு எடுக்குறோம்
+                wishlistArray = Object.keys(wishlistRaw).map(id => parseInt(id));
             }
 
-            data.category = window.selectedCategory ?? "";
+            let html = "";
 
-            if ($("#productSearch").length && $("#productSearch").val().trim() !== "") {
-                data.search = $("#productSearch").val().trim();
+            if (products.length === 0) {
+                $("#masonry").html('<div class="col-12 text-center py-5 text-muted">No products found in this boutique section.</div>');
+                if ($("#masonry").data('masonry')) { $("#masonry").masonry('destroy'); }
+                return;
             }
 
-            $.ajax({
-                url: "{{ route('mostfetchProducts') }}",
-                type: "GET",
-                data: data,
-                success: function(response) {
-                    let products = response.products;
-                    let wishlist = response.wishlist || [];
-                    let html = "";
+            products.forEach(product => {
+                // 🛠️ FIX: `includes()` crash ஆகாம இருக்க integer type check பண்றோம்
+                let isActive = wishlistArray.includes(parseInt(product.id)) ? "active" : "";
+                let mediaContent = generateProductMediaHtml(product);
 
-                    if(products.length === 0) {
-                        $("#masonry").html('<div class="col-12 text-center py-5 text-muted">No products found in this boutique section.</div>');
-                        if ($("#masonry").data('masonry')) { $("#masonry").masonry('destroy'); }
-                        return;
-                    }
+                // Safe fallback evaluation for numbers
+                let discountPrice = parseFloat(product.discount_price || 0);
+                let originalPrice = parseFloat(product.price || 0);
 
-                    products.forEach(product => {
-                        let isActive = wishlist.includes(product.id) ? "active" : "";
-                        let mediaContent = generateProductMediaHtml(product);
-
-                        html += `
-                        <li class="card-container col-6 col-md-4 col-lg-3">
-                            <div class="shop-card">
-                                ${product.discount > 0 ? `
-                                <div class="product-badge-container">
-                                    <span class="badge">-${parseInt(product.discount)}%</span>
-                                </div>` : ''}
-                                <div class="dz-media" onclick="window.location.href='${productDetailsRoute}/${product.id}'">
-                                     ${mediaContent}
-                                    <div class="shop-meta">
-                                        <a href="${productDetailsRoute}/${product.id}" class="btn btn-secondary btn-sm">
-                                            <i class="fa-solid fa-eye"></i> Quick View
-                                        </a>
-                                        <div class="btn btn-primary meta-icon dz-wishicon addToWishlist ${isActive}" data-id="${product.id}" id="wishlist-btn-${product.id}">
-                                            <i class="icon feather icon-heart dz-heart"></i>
-                                            <i class="icon feather icon-heart-on dz-heart-fill"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="dz-content">
-                                    <h5 class="title"><a href="${productDetailsRoute}/${product.id}">${product.product_name}</a></h5>
-                                    <h6 class="price">
-                                        ₹${parseFloat(product.discount_price).toFixed(2)}
-                                        ${product.price > product.discount_price ? `<del>₹${parseFloat(product.price).toFixed(2)}</del>` : ''}
-                                    </h6>
+                html += `
+                <li class="card-container col-6 col-md-4 col-lg-3">
+                    <div class="shop-card">
+                        ${product.discount > 0 ? `
+                        <div class="product-badge-container">
+                            <span class="badge">-${parseInt(product.discount)}%</span>
+                        </div>` : ''}
+                        <div class="dz-media" onclick="window.location.href='${productDetailsRoute}/${product.id}'">
+                             ${mediaContent}
+                            <div class="shop-meta">
+                                <a href="${productDetailsRoute}/${product.id}" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-eye"></i> Quick View
+                                </a>
+                                <div class="btn btn-primary meta-icon dz-wishicon addToWishlist ${isActive}" data-id="${product.id}" id="wishlist-btn-${product.id}">
+                                    <i class="icon feather icon-heart dz-heart"></i>
+                                    <i class="icon feather icon-heart-on dz-heart-fill"></i>
                                 </div>
                             </div>
-                        </li>`;
-                    });
-
-                    let $container = $("#masonry");
-                    $container.html(html);
-                    $container.imagesLoaded(function() {
-                        if ($container.data('masonry')) { $container.masonry('destroy'); }
-                        $container.masonry({ itemSelector: '.card-container', percentPosition: true, horizontalOrder: true });
-                    });
-                }
+                        </div>
+                        <div class="dz-content">
+                            <h5 class="title"><a href="${productDetailsRoute}/${product.id}">${product.product_name}</a></h5>
+                            <h6 class="price">
+                                ₹${discountPrice.toFixed(2)}
+                                ${originalPrice > discountPrice ? `<del>₹${originalPrice.toFixed(2)}</del>` : ''}
+                            </h6>
+                        </div>
+                    </div>
+                </li>`;
             });
+
+            let $container = $("#masonry");
+            $container.html(html);
+            $container.imagesLoaded(function() {
+                if ($container.data('masonry')) { $container.masonry('destroy'); }
+                $container.masonry({ itemSelector: '.card-container', percentPosition: true, horizontalOrder: true });
+            });
+        },
+        error: function(xhr, status, error) {
+            console.error("AJAX Error details: ", xhr.responseText);
         }
+    });
+}
 
         // Fetch Blockbuster Deals Carousel Pipeline
         function fetchDiscountProducts() {

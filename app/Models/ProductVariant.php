@@ -8,6 +8,9 @@ class ProductVariant extends Model
 {
     //
     protected $guarded = [];
+    protected $casts = [
+        'thumbnail' => 'array', 
+    ];
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');

@@ -18,7 +18,8 @@ use Yajra\DataTables\DataTables;
 use App\Models\Category;
 use App\Models\Material;
 use App\Models\Size;
-use App\Models\ShippingCharge;  
+use App\Models\ShippingCharge;
+
 class FrontendController extends Controller
 {
     public function LoginPage()
@@ -31,11 +32,12 @@ class FrontendController extends Controller
     }
     public function allProducts()
     {
-        // Fetch all products (example)
-        $categories = Category::where('status',1)->get();
-        return view('pages.all-products', compact('categories')); // your view file
+        // Active categories மற்றும் அனைத்து Materials-ஐயும் எடுக்கிறோம்
+        $categories = Category::where('status', 1)->get();
+        $materials = Material::all();
+        return view('pages.all-products', compact('categories', 'materials'));
     }
-   public function index()
+    public function index()
     {
         $banner = Banner::where('status', 1)->get();
         $categories = Category::where('status', 1)->get();
@@ -44,80 +46,144 @@ class FrontendController extends Controller
             'categories' => $categories
         ]);
     }
-   public function mostfetchProducts(Request $request)
-{
-    // Eager loading constraints mapping
-    $query = Product::with(['variants' => function($q) {
-        $q->where('status', 1);
-    }])->where('status', 1);
+    public function mostfetchProducts(Request $request)
+    {
+        // Eager loading constraints mapping
+        $query = Product::with(['variants' => function ($q) {
+            $q->where('status', 1);
+        }])->where('status', 1);
 
-    // Category Filter 
-    if ($request->has('category') && !empty($request->category)) {
-        $query->where('category_id', $request->category);
-    }
+        // Category Filter 
+        if ($request->has('category') && !empty($request->category)) {
+            $query->where('category_id', $request->category);
+        }
 
-    // Search Filter 
-    if ($request->has('search') && !empty($request->search)) {
-        $search = $request->search;
-        $query->where(function($q) use ($search) {
-            $q->where('product_name', 'LIKE', "%{$search}%")
-              ->orWhere('tags', 'LIKE', "%{$search}%");
+        // Search Filter 
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('product_name', 'LIKE', "%{$search}%")
+                    ->orWhere('tags', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $products = $query->get()->map(function ($product) {
+            $firstVariant = $product->variants->first();
+
+            $price = $firstVariant ? $firstVariant->price : 0;
+            $discountPrice = $firstVariant ? $firstVariant->discount_price : 0;
+            $discountPercentage = $firstVariant ? $firstVariant->discount_percentage : 0;
+
+            // E-commerce logic fallback for matching active layout string arrays
+            $productImage = $product->images ?? $product->thumbnail ?? ($firstVariant ? ($firstVariant->images ?? $firstVariant->thumbnail) : null);
+
+            return [
+                'id'             => $product->id,
+                'product_name'   => $product->product_name,
+                'price'          => $price,
+                'discount_price' => $discountPrice,
+                'discount'       => $discountPercentage,
+                'images'         => $productImage,
+            ];
         });
+
+        // Price Filter using Collection processing limits
+        if ($request->has('min_price') && $request->has('max_price')) {
+            $min = $request->min_price;
+            $max = $request->max_price;
+            $products = $products->filter(function ($p) use ($min, $max) {
+                return $p['discount_price'] >= $min && $p['discount_price'] <= $max;
+            })->values();
+        }
+
+        // Checking authentication rules for user context pipeline
+        // $wishlist = auth()->check() ? auth()->user()->wishlist()->pluck('product_id')->toArray() : [];
+        $wishlist = session()->get('wishlist', []);
+
+
+        $wishlistIds = is_array($wishlist) ? array_keys($wishlist) : [];
+
+        return response()->json([
+            'products' => $products,
+            'wishlist' => $wishlistIds
+        ]);
     }
+    public function fetchProducts(Request $request)
+    {
+        $query = Product::with(['variants' => function ($q) {
+            $q->where('status', 1);
+        }])->where('status', 1);
+        if ($request->has('category') && !empty($request->category)) {
+            $query->where('category_id', $request->category);
+        }
+        if ($request->has('material') && !empty($request->material)) {
+            $query->where('material_id', $request->material);
+        }
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('product_name', 'LIKE', "%{$search}%")
+                    ->orWhere('tags', 'LIKE', "%{$search}%");
+            });
+        }
+        if ($request->has('min_price') && $request->has('max_price')) {
+            $min = $request->min_price;
+            $max = $request->max_price;
 
-    $products = $query->get()->map(function($product) {
-        $firstVariant = $product->variants->first();
-        
-        $price = $firstVariant ? $firstVariant->price : 0;
-        $discountPrice = $firstVariant ? $firstVariant->discount_price : 0;
-        $discountPercentage = $firstVariant ? $firstVariant->discount_percentage : 0;
-        
-        // E-commerce logic fallback for matching active layout string arrays
-        $productImage = $product->images ?? $product->thumbnail ?? ($firstVariant ? ($firstVariant->images ?? $firstVariant->thumbnail) : null);
+            $query->whereHas('variants', function ($q) use ($min, $max) {
+                $q->where('status', 1)
+                    ->where(function ($sub) use ($min, $max) {
+                        $sub->whereBetween('discount_price', [$min, $max])
+                            ->orWhere(function ($nested) use ($min, $max) {
+                                $nested->where('discount_price', '<=', 0)
+                                    ->whereBetween('price', [$min, $max]);
+                            });
+                    });
+            });
+        }
+        $products = $query->get()->map(function ($product) {
+            $firstVariant = $product->variants->first();
+            $price = $firstVariant ? $firstVariant->price : ($product->price ?? 0);
+            $discountPrice = $firstVariant && $firstVariant->discount_price > 0 ? $firstVariant->discount_price : $price;
+            $discountPercentage = $firstVariant ? $firstVariant->discount_percentage : ($product->discount ?? 0);
+            $rawImage = $product->thumbnail ?? ($firstVariant ? $firstVariant->thumbnail : '');
+            $cleanImage = '';
+            if (!empty($rawImage)) {
+                $imgArray = explode(',', $rawImage);
+                $cleanImage = trim($imgArray[0]);
+            }
 
-        return [
-            'id'             => $product->id,
-            'product_name'   => $product->product_name,
-            'price'          => $price,
-            'discount_price' => $discountPrice,
-            'discount'       => $discountPercentage,
-            'images'         => $productImage, 
-        ];
-    });
+            return [
+                'id'             => $product->id,
+                'product_name'   => $product->product_name,
+                'price'          => (float)$price,
+                'discount_price' => (float)$discountPrice,
+                'discount'       => (int)$discountPercentage,
+                'thumbnail'      => $cleanImage,
+                'variants'       => $product->variants
+            ];
+        });
 
-    // Price Filter using Collection processing limits
-    if ($request->has('min_price') && $request->has('max_price')) {
-        $min = $request->min_price;
-        $max = $request->max_price;
-        $products = $products->filter(function($p) use ($min, $max) {
-            return $p['discount_price'] >= $min && $p['discount_price'] <= $max;
-        })->values();
+        $wishlist = session()->get('wishlist', []);
+        $wishlistIds = is_array($wishlist) ? array_keys($wishlist) : [];
+        // dd($products);
+        return response()->json([
+            'products' => $products,
+            'wishlist' => $wishlistIds
+        ]);
     }
-
-    // Checking authentication rules for user context pipeline
-    // $wishlist = auth()->check() ? auth()->user()->wishlist()->pluck('product_id')->toArray() : [];
-    $wishlist = session()->get('wishlist', []);
-    
-
-    $wishlistIds = is_array($wishlist) ? array_keys($wishlist) : [];
-
-    return response()->json([
-        'products' => $products,
-        'wishlist' => $wishlist
-    ]);
-}
     // B. Blockbuster Deals (Swiper Slide Fetch)
     public function fetchDiscountProducts()
     {
         $products = Product::where('status', 1)
-            ->whereHas('variants', function($q) {
+            ->whereHas('variants', function ($q) {
                 $q->where('status', 1)->where('discount_percentage', '>', 0);
             })
-            ->with(['variants' => function($q) {
+            ->with(['variants' => function ($q) {
                 $q->where('status', 1)->orderBy('discount_percentage', 'desc');
             }])
             ->get()
-            ->map(function($product) {
+            ->map(function ($product) {
                 $bestVariant = $product->variants->first(); // அதிக தள்ளுபடி உள்ள வேரியண்ட்
 
                 $productImage = $product->thumbnail ?? ($bestVariant ? $bestVariant->thumbnail : null);
@@ -134,47 +200,47 @@ class FrontendController extends Controller
 
         return response()->json($products);
     }
-   
 
- public function discountProducts()
-{
-    $products = Product::with(['category', 'material', 'variants'])
-        ->where('is_new_arrival', 1)
-        ->where('status', 1) // Active-ஆன தயாரிப்புகளை மட்டும் எடுக்க
-        ->get()
-        ->map(function($product) {
-            
-            // Name fallback normalizer
-            $product->product_name = $product->product_name ?? $product->name;
-            
-            // Image key structure alignment
-            $product->images = $product->images ?? $product->image ?? $product->thumbnail ?? '';
-            
-            if (!$product->price && $product->variants->isNotEmpty()) {
-                $firstVariant = $product->variants->first();
-                $product->price = $firstVariant->price;
-                $product->discount_price = $firstVariant->discount_price ?? $firstVariant->selling_price ?? $firstVariant->price;
-                $product->discount = $firstVariant->discount ?? $firstVariant->discount_percentage ?? 0;
-            } else {
-                // ஒருவேளை மெயின் டேபிளிலேயே விலை இருந்தால் அதற்கான Fallback
-                $product->price = $product->price ?? 0;
-                $product->discount_price = $product->discount_price ?? $product->selling_price ?? $product->price;
-                $product->discount = $product->discount ?? 0;
-            }
 
-            return $product;
-        });
+    public function discountProducts()
+    {
+        $products = Product::with(['category', 'material', 'variants'])
+            ->where('is_new_arrival', 1)
+            ->where('status', 1) // Active-ஆன தயாரிப்புகளை மட்டும் எடுக்க
+            ->get()
+            ->map(function ($product) {
 
-    // 2. Fetch Wishlist Array Keys (fetchProducts-ல் இருப்பது போலவே 100% சிங் செய்யப்பட்டுள்ளது)
-    $wishlist = session()->get('wishlist', []);
-    $wishlistIds = array_keys($wishlist);
+                // Name fallback normalizer
+                $product->product_name = $product->product_name ?? $product->name;
 
-    // JSON response matching front-end JavaScript pipeline
-    return response()->json([
-        'products' => $products,
-        'wishlist' => $wishlistIds
-    ]);
-}
+                // Image key structure alignment
+                $product->images = $product->images ?? $product->image ?? $product->thumbnail ?? '';
+
+                if (!$product->price && $product->variants->isNotEmpty()) {
+                    $firstVariant = $product->variants->first();
+                    $product->price = $firstVariant->price;
+                    $product->discount_price = $firstVariant->discount_price ?? $firstVariant->selling_price ?? $firstVariant->price;
+                    $product->discount = $firstVariant->discount ?? $firstVariant->discount_percentage ?? 0;
+                } else {
+                    // ஒருவேளை மெயின் டேபிளிலேயே விலை இருந்தால் அதற்கான Fallback
+                    $product->price = $product->price ?? 0;
+                    $product->discount_price = $product->discount_price ?? $product->selling_price ?? $product->price;
+                    $product->discount = $product->discount ?? 0;
+                }
+
+                return $product;
+            });
+
+        // 2. Fetch Wishlist Array Keys (fetchProducts-ல் இருப்பது போலவே 100% சிங் செய்யப்பட்டுள்ளது)
+        $wishlist = session()->get('wishlist', []);
+        $wishlistIds = array_keys($wishlist);
+
+        // JSON response matching front-end JavaScript pipeline
+        return response()->json([
+            'products' => $products,
+            'wishlist' => $wishlistIds
+        ]);
+    }
     // public function ProductDetails($id)
     // {
     //     $product = Product::with(['category', 'material'])->findOrFail($id);
@@ -210,7 +276,7 @@ class FrontendController extends Controller
     //     $wishlistProductIds = collect(session()->get('wishlist', []))
     //         ->pluck('id')
     //         ->toArray();
-            
+
     //     return view('pages.product-detail', compact(
     //         'product',
     //         'images',
@@ -225,13 +291,13 @@ class FrontendController extends Controller
 
     public function ProductDetails($id)
     {
-        // Eager load variations or base relationships
         $product = Product::with(['category', 'material', 'variants.size', 'variants.color'])->findOrFail($id);
 
-        // Convert JSON or comma separated images
-        $images = [];
+        $baseImages = [];
+
+
         if (!empty($product->thumbnail)) {
-            $images[] = $product->thumbnail;
+            $baseImages[] = $product->thumbnail;
         }
 
         if (!empty($product->images)) {
@@ -239,51 +305,58 @@ class FrontendController extends Controller
                 ? json_decode($product->images, true)
                 : explode(',', $product->images);
 
-            $images = array_merge($images, $productImages);
+            $baseImages = array_merge($baseImages, $productImages);
         }
 
-        // Variant thumbnails
+        // FIX: Properly decode JSON array strings stored inside variant thumbnails
         foreach ($product->variants as $variant) {
             if (!empty($variant->thumbnail)) {
-                $images[] = $variant->thumbnail;
+                if (is_array($variant->thumbnail)) {
+                    // If Laravel has already casted this into an array automatically
+                    $baseImages = array_merge($baseImages, $variant->thumbnail);
+                } elseif (is_string($variant->thumbnail) && str_starts_with($variant->thumbnail, '[')) {
+                    // If it's a raw JSON string array format
+                    $variantImages = json_decode($variant->thumbnail, true);
+                    if (is_array($variantImages)) {
+                        $baseImages = array_merge($baseImages, $variantImages);
+                    }
+                } else {
+                    // If it's a standard single string image path
+                    $baseImages[] = $variant->thumbnail;
+                }
             }
         }
 
-        // Remove duplicates & empty values
-        $images = array_values(array_unique(array_filter($images)));
+        $baseImages = array_values(array_unique(array_filter($baseImages)));
 
-        // FIXED: Robust unique color logic matching frontend JS expectations explicitly
         $uniqueColors = $product->variants->filter(function ($variant) {
-            // Safe check: Only process if variant has a valid color record or string fallback
             return !empty($variant->color_id) || !empty($variant->color_name);
         })->groupBy(function ($variant) {
             return $variant->color_id ?? $variant->color_name;
         })->map(function ($group) {
             $firstVariant = $group->first();
-            $variantColor = $firstVariant->color; // Direct relationship link
-            
+            $variantColor = $firstVariant->color;
+
             $colorId = $firstVariant->color_id ?? $firstVariant->color_name;
             $colorName = $variantColor ? $variantColor->name : ($firstVariant->color_name ?? 'Standard');
-            $colorCode = $variantColor ? $variantColor->code : '#000000'; 
+            $colorCode = $variantColor ? $variantColor->code : '#000000';
 
             return [
-                'id'   => (string)$colorId, // Strict casting to String to match JS node properties perfectly
+                'id'   => (string)$colorId,
                 'name' => $colorName,
                 'code' => $colorCode
             ];
         })->values();
 
-        // Fetch review matrix
         $avgRating = Review::where('product_id', $id)->where('status', 1)->avg('rating');
         $reviewCount = Review::where('product_id', $id)->where('status', 1)->count();
         $reviews = Review::with('user')->where('product_id', $id)->where('status', 1)->latest()->get();
 
-        // Session-based Wishlist check
         $wishlistProductIds = collect(session()->get('wishlist', []))->pluck('id')->toArray();
 
         return view('pages.product-detail', compact(
             'product',
-            'images',
+            'baseImages',
             'uniqueColors',
             'avgRating',
             'reviewCount',
@@ -291,43 +364,43 @@ class FrontendController extends Controller
             'reviews'
         ));
     }
-   public function generateColorCode($color)
-{
-    $colors = [
-        'Black'     => '#000000',
-        'White'     => '#FFFFFF',
-        'Red'       => '#FF0000',
-        'Blue'      => '#4169E1',
-        'Green'     => '#228B22',
-        'Yellow'    => '#FFD700',
-        'Orange'    => '#FF8C00',
-        'Purple'    => '#800080',
-        'Pink'      => '#FFC0CB',
-        'Brown'     => '#A52A2A',
-        'Gray'      => '#808080',
-        'Grey'      => '#808080',
-        'Silver'    => '#C0C0C0',
-        'Gold'      => '#B8860B',
-        'Maroon'    => '#800000',
-        'Navy'      => '#000080',
-        'Teal'      => '#008080',
-        'Turquoise' => '#40E0D0',
-        'Plum'      => '#DDA0DD',
-        'Beige'     => '#F5DEB3',
-        'Crimson'   => '#DC143C',
-    ];
+    public function generateColorCode($color)
+    {
+        $colors = [
+            'Black'     => '#000000',
+            'White'     => '#FFFFFF',
+            'Red'       => '#FF0000',
+            'Blue'      => '#4169E1',
+            'Green'     => '#228B22',
+            'Yellow'    => '#FFD700',
+            'Orange'    => '#FF8C00',
+            'Purple'    => '#800080',
+            'Pink'      => '#FFC0CB',
+            'Brown'     => '#A52A2A',
+            'Gray'      => '#808080',
+            'Grey'      => '#808080',
+            'Silver'    => '#C0C0C0',
+            'Gold'      => '#B8860B',
+            'Maroon'    => '#800000',
+            'Navy'      => '#000080',
+            'Teal'      => '#008080',
+            'Turquoise' => '#40E0D0',
+            'Plum'      => '#DDA0DD',
+            'Beige'     => '#F5DEB3',
+            'Crimson'   => '#DC143C',
+        ];
 
-    $color = trim($color);
+        $color = trim($color);
 
-    return $colors[$color] ?? '#000000';
-}
+        return $colors[$color] ?? '#000000';
+    }
 
-   public function CartStore(Request $request)
+    public function CartStore(Request $request)
     {
         // 1. Validation Rules
         $request->validate([
             'product_id' => 'required|integer',
-            'variant_id' => 'required|integer', 
+            'variant_id' => 'required|integer',
             'quantity'   => 'required|integer|min:1',
             'size'       => 'nullable|string',
             'color'      => 'nullable|string',
@@ -354,7 +427,7 @@ class FrontendController extends Controller
         // கார்ட்டில் ஏற்கனவே அதே தயாரிப்பு மற்றும் வேரியண்ட் உள்ளதா எனச் சரிபார்த்தல்
         $cart = Cart::where('user_id', $userId)
             ->where('product_id', $request->product_id)
-            ->where('variant_id', $request->variant_id) 
+            ->where('variant_id', $request->variant_id)
             ->first();
 
         if ($cart) {
@@ -362,7 +435,7 @@ class FrontendController extends Controller
             $cart->quantity += $quantity;
 
             // ⚡ விலை மற்றும் மொத்தத் தொகையை இங்கும் புதுப்பிக்கிறோம்
-            $cart->price = $discountPrice; 
+            $cart->price = $discountPrice;
             $cart->total_amount = $cart->quantity * $discountPrice;
 
             $cart->size = $request->size ?? $cart->size;
@@ -373,17 +446,17 @@ class FrontendController extends Controller
             $cart = new Cart();
             $cart->user_id = $userId;
             $cart->product_id = $request->product_id;
-            $cart->variant_id = $request->variant_id; 
+            $cart->variant_id = $request->variant_id;
             $cart->quantity = $quantity;
             $cart->size = $request->size;
             $cart->color = $request->color;
-            
+
             // ⚡ 1. 'price' காலமில் variant discount_price சேமிக்கப்படுகிறது
-            $cart->price = $discountPrice; 
-            
+            $cart->price = $discountPrice;
+
             // ⚡ 2. 'total_amount' காலமில் மொத்தத் தொகை கணக்கிடப்பட்டு சேமிக்கப்படுகிறது
             $cart->total_amount = $quantity * $discountPrice;
-            
+
             $cart->save();
         }
 
@@ -397,43 +470,43 @@ class FrontendController extends Controller
     {
         return view('pages.view-cart'); // your view file
     }
-public function getCartItems()
-{
-    $cartItems = Cart::with(['product', 'productVariant']) 
-                    ->where('user_id', auth()->id())
-                    ->get();
+    public function getCartItems()
+    {
+        $cartItems = Cart::with(['product', 'productVariant'])
+            ->where('user_id', auth()->id())
+            ->get();
 
-    $cartItems->transform(function ($item) {
-        $price = 0;
-        $image = 'no-image.png';
+        $cartItems->transform(function ($item) {
+            $price = 0;
+            $image = 'no-image.png';
 
-        $variant = $item->productVariant ?? null;
-        $product = $item->product ?? null;
+            $variant = $item->productVariant ?? null;
+            $product = $item->product ?? null;
 
-        if (!empty($item->price) && floatval($item->price) > 0) {
-            $price = $item->price;
-        } elseif ($variant) {
-            $price = $variant->discount_price ?? $variant->price ?? $variant->variant_price ?? 0;
-        } elseif ($product) {
-            $price = $product->discount_price ?? $product->price ?? 0;
-        }
+            if (!empty($item->price) && floatval($item->price) > 0) {
+                $price = $item->price;
+            } elseif ($variant) {
+                $price = $variant->discount_price ?? $variant->price ?? $variant->variant_price ?? 0;
+            } elseif ($product) {
+                $price = $product->discount_price ?? $product->price ?? 0;
+            }
 
-        if ($variant && (!empty($variant->thumbnail) || !empty($variant->image))) {
-            $image = $variant->thumbnail ?? $variant->image;
-        } elseif ($product && (!empty($product->thumbnail) || !empty($product->image))) {
-            $image = $product->thumbnail ?? $product->image;
-        }
+            if ($variant && (!empty($variant->thumbnail) || !empty($variant->image))) {
+                $image = $variant->thumbnail ?? $variant->image;
+            } elseif ($product && (!empty($product->thumbnail) || !empty($product->image))) {
+                $image = $product->thumbnail ?? $product->image;
+            }
 
-        $item->final_price = floatval($price);
-        $item->final_image = trim($image);
+            $item->final_price = floatval($price);
+            $item->final_image = trim($image);
 
-        return $item;
-    });
-    return response()->json([
-        'status' => 'success',
-        'cartItems' => $cartItems
-    ]);
-}
+            return $item;
+        });
+        return response()->json([
+            'status' => 'success',
+            'cartItems' => $cartItems
+        ]);
+    }
     public function removeCartItem($id)
     {
         $cartItem = Cart::find($id);
@@ -446,17 +519,17 @@ public function getCartItems()
 
         return response()->json(['status' => 'success', 'message' => 'Item removed']);
     }
-   
-    public function updateCart(Request $request) 
+
+    public function updateCart(Request $request)
     {
         $cartItem = Cart::with(['productVariant'])
-                        ->where('id', $request->item_id)
-                        ->where('user_id', auth()->id())
-                        ->first();
+            ->where('id', $request->item_id)
+            ->where('user_id', auth()->id())
+            ->first();
 
         if ($cartItem) {
             $cartItem->quantity = $request->quantity;
-            
+
             if ($cartItem->productVariant) {
                 $price = $cartItem->productVariant->discount_price;
             } else {
@@ -655,19 +728,19 @@ public function getCartItems()
     }
 
     public function removeWishlist($id)
-{
-    $wishlist = session()->get('wishlist', []);
+    {
+        $wishlist = session()->get('wishlist', []);
 
-    if (isset($wishlist[$id])) {
-        unset($wishlist[$id]);
-        session()->put('wishlist', $wishlist);
+        if (isset($wishlist[$id])) {
+            unset($wishlist[$id]);
+            session()->put('wishlist', $wishlist);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Removed from wishlist'
+        ]);
     }
-
-    return response()->json([
-        'status' => true,
-        'message' => 'Removed from wishlist'
-    ]);
-}
     public function userWishlistList()
     {
         $product = Product::all();
@@ -730,41 +803,132 @@ public function getCartItems()
     {
         return view('pages.products');
     }
+public function getNewArrivals()
+{
+    try {
 
-    public function getNewArrivals()
-    {
-        
-        $products = Product::where('is_new', 1)->where('status', 1)->get();
+        $products = Product::with([
+                'variants' => function ($q) {
+                    $q->where('status', 1);
+                }
+            ])
+            ->where('is_new_arrival', 1)
+            ->where('status', 1)
+            ->latest()
+            ->get()
+            ->map(function ($product) {
+
+                $variant = $product->variants->first();
+
+                $price = $variant?->price ?? $product->price ?? 0;
+
+                $discountPrice = !empty($variant?->discount_price)
+                    ? $variant->discount_price
+                    : ($product->discount_price ?? $price);
+
+                $discount = $variant?->discount_percentage
+                    ?? $product->discount
+                    ?? 0;
+
+                return [
+                    'id'             => $product->id,
+                    'product_name'   => $product->product_name,
+                    'price'          => (float) $price,
+                    'discount_price' => (float) $discountPrice,
+                    'discount'       => (float) $discount,
+                    'offer_text'     => $product->offer_text,
+                    'thumbnail'      => $product->thumbnail, // Product table thumbnail only
+                ];
+            });
 
         $wishlist = session()->get('wishlist', []);
-        $wishlistIds = array_keys($wishlist);
+
         return response()->json([
+            'success'  => true,
             'products' => $products,
-            'wishlist' => $wishlistIds
-
+            'wishlist' => array_map('intval', array_keys($wishlist))
         ]);
-    }
 
-    public function filterProducts(Request $request)
-    {
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
+
+ public function filterProducts(Request $request)
+{
+    try {
         $category = $request->category;
-        // dd($category);
+
+        // Base Query with Variant relationships
+        $query = Product::with(['variants' => function ($q) {
+            $q->where('status', 1);
+        }])->where('status', 1);
+
+        // Filter Categories
         if ($category == 'new-arrivals') {
-            $products = Product::where('is_new', 1)->where('status', 1)->get();
-        } else {
-            $products = Product::where('category', $category)
-                ->where('status', 1)
-                ->get();
+            $query->where('is_new_arrival', 1);
+        } elseif (!empty($category)) {
+            $query->when(is_numeric($category), function($q) use ($category) {
+                return $q->where('category_id', $category);
+            }, function($q) use ($category) {
+                return $q->whereHas('category', function($subQ) use ($category) {
+                    $subQ->where('slug', $category);
+                });
+            });
         }
 
+        $rawProducts = $query->latest()->get();
+
+        $products = $rawProducts->map(function ($product) {
+            $firstVariant = $product->variants->first();
+            
+            // Dynamic variant-first fallback pricing logic
+            $price = $firstVariant ? $firstVariant->price : ($product->price ?? 0);
+            $discountPrice = $firstVariant && $firstVariant->discount_price > 0 ? $firstVariant->discount_price : $price;
+            $discountPercentage = $firstVariant ? $firstVariant->discount_percentage : ($product->discount ?? 0);
+            
+            // Comprehensive Image Fallback Hierarchy
+            // Checks: 1. Variant Thumbnail -> 2. Main Product Thumbnail -> 3. Main Product Images column
+            $rawImage = '';
+            if ($firstVariant && !empty($firstVariant->thumbnail)) {
+                $rawImage = $firstVariant->thumbnail;
+            } elseif (!empty($product->thumbnail)) {
+                $rawImage = $product->thumbnail;
+            } elseif (!empty($product->images)) {
+                $rawImage = $product->images;
+            }
+
+            return [
+                'id'             => $product->id,
+                'product_name'   => $product->product_name,
+                'price'          => (float)$price,
+                'discount_price' => (float)$discountPrice,
+                'discount'       => (int)$discountPercentage,
+                'images'         => $rawImage, // Sending raw comma string safely over to frontend JS processing
+                'variants'       => $product->variants
+            ];
+        });
+
         $wishlist = session()->get('wishlist', []);
-        $wishlistIds = array_keys($wishlist);
+        $wishlistIds = is_array($wishlist) ? array_keys($wishlist) : [];
 
         return response()->json([
+            'success'  => true,
             'products' => $products,
             'wishlist' => $wishlistIds
         ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
     public function About(Request $request)
     {
         return view('pages.about'); // your view file
@@ -982,87 +1146,87 @@ public function getCartItems()
     {
         $status = $request->status;
 
-       $orders = Order::with('user')
-        ->when($status, function ($query) use ($status) {
-            $query->where('status', $status);
-        })
-        ->when(auth()->user()->role != 1, function ($query) {
-            $query->where('user_id', auth()->id());
-        })
-        ->orderBy('id', 'DESC')
-        ->paginate(10);
+        $orders = Order::with('user')
+            ->when($status, function ($query) use ($status) {
+                $query->where('status', $status);
+            })
+            ->when(auth()->user()->role != 1, function ($query) {
+                $query->where('user_id', auth()->id());
+            })
+            ->orderBy('id', 'DESC')
+            ->paginate(10);
         // dd($orders);
         return view('pages.my-order', compact('orders', 'status'));
     }
 
- public function calculateGst(Request $request) 
-{
-    $country = $request->country; 
-    $state = $request->state;     
-    $subtotal = floatval($request->subtotal);
-    $couponCode = $request->coupon_code;
+    public function calculateGst(Request $request)
+    {
+        $country = $request->country;
+        $state = $request->state;
+        $subtotal = floatval($request->subtotal);
+        $couponCode = $request->coupon_code;
 
-    $discount = 0;
-    if (!empty($couponCode)) {
-        
-        $coupon = Coupon::where('coupon_code', $couponCode)
-                        ->where('status', 1)
-                        ->first();
-                        
-        if ($coupon) {
-            $discountType = strtolower($coupon->discount_type);
-            
-            if ($discountType === 'percentage' || $coupon->discount_type == 1) {
-                $discount = ($subtotal * floatval($coupon->discount)) / 100;
-            } else {
-                $discount = floatval($coupon->discount);
-            }
+        $discount = 0;
+        if (!empty($couponCode)) {
 
-            if ($coupon->max_discount && $discount > $coupon->max_discount) {
-                $discount = $coupon->max_discount;
+            $coupon = Coupon::where('coupon_code', $couponCode)
+                ->where('status', 1)
+                ->first();
+
+            if ($coupon) {
+                $discountType = strtolower($coupon->discount_type);
+
+                if ($discountType === 'percentage' || $coupon->discount_type == 1) {
+                    $discount = ($subtotal * floatval($coupon->discount)) / 100;
+                } else {
+                    $discount = floatval($coupon->discount);
+                }
+
+                if ($coupon->max_discount && $discount > $coupon->max_discount) {
+                    $discount = $coupon->max_discount;
+                }
             }
         }
-    }
-    $taxable_amount = max($subtotal - $discount, 0);
+        $taxable_amount = max($subtotal - $discount, 0);
 
-    $shipping = ShippingCharge::where('country', $country)
-                              ->where('state', $state)
-                              ->first();
-
-    if (!$shipping) {
         $shipping = ShippingCharge::where('country', $country)
-                                  ->where('state', 'Other States')
-                                  ->first();
-    }
+            ->where('state', $state)
+            ->first();
 
-    $shipping_amount = $shipping ? floatval($shipping->charge_amount) : 0;
-
-    // 3️⃣ ஜிஎஸ்டி (GST) கணக்கிடுதல் (18% வரி)
-    $gst_rate = 18; 
-    $cgst = 0;
-    $sgst = 0;
-    $igst = 0;
-
-    if (trim(strtolower($country)) === 'india') {
-        if (trim(strtolower($state)) === 'tamil nadu') {
-            $half_rate = $gst_rate / 2;
-            $cgst = ($taxable_amount * $half_rate) / 100;
-            $sgst = ($taxable_amount * $half_rate) / 100;
-        } else {
-            $igst = ($taxable_amount * $gst_rate) / 100;
+        if (!$shipping) {
+            $shipping = ShippingCharge::where('country', $country)
+                ->where('state', 'Other States')
+                ->first();
         }
+
+        $shipping_amount = $shipping ? floatval($shipping->charge_amount) : 0;
+
+        // 3️⃣ ஜிஎஸ்டி (GST) கணக்கிடுதல் (18% வரி)
+        $gst_rate = 18;
+        $cgst = 0;
+        $sgst = 0;
+        $igst = 0;
+
+        if (trim(strtolower($country)) === 'india') {
+            if (trim(strtolower($state)) === 'tamil nadu') {
+                $half_rate = $gst_rate / 2;
+                $cgst = ($taxable_amount * $half_rate) / 100;
+                $sgst = ($taxable_amount * $half_rate) / 100;
+            } else {
+                $igst = ($taxable_amount * $gst_rate) / 100;
+            }
+        }
+
+        $final_total = $taxable_amount + $shipping_amount + $cgst + $sgst + $igst;
+
+        return response()->json([
+            'status' => 'success',
+            'discount' => round($discount, 2),
+            'cgst' => round($cgst, 2),
+            'sgst' => round($sgst, 2),
+            'igst' => round($igst, 2),
+            'shipping_charge' => round($shipping_amount, 2),
+            'final_total' => round($final_total, 2)
+        ]);
     }
-
-    $final_total = $taxable_amount + $shipping_amount + $cgst + $sgst + $igst;
-
-    return response()->json([
-        'status' => 'success',
-        'discount' => round($discount, 2),
-        'cgst' => round($cgst, 2),
-        'sgst' => round($sgst, 2),
-        'igst' => round($igst, 2),
-        'shipping_charge' => round($shipping_amount, 2),
-        'final_total' => round($final_total, 2)
-    ]);
-}
 }
