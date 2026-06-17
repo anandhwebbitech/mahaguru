@@ -89,26 +89,10 @@
                 <div class="col-lg-4">
                 <h4 class="title mb15">Cart Total</h4>
                 <div class="cart-detail">
-                    {{-- <div class="icon-bx-wraper style-4 m-b15">
-                        <div class="icon-bx">
-                            <i class="flaticon flaticon-ship"></i>
-                        </div>
-                        <div class="icon-content">
-                            <span class="font-14">FREE SHIPPING</span>
-                            <h6 class="dz-title">Enjoy Your Product</h6>
-                        </div>
-                    </div> --}}
-
+                    
                     <table class="table style-1 check-tbl mb-4">
                         <tbody>
-                            {{-- <tr>
-                                <td><span class="text-muted">Subtotal</span></td>
-                                <td class="text-end"><h6 class="mb-0" id="cart_subtotal">₹0.00</h6></td>
-                            </tr>
-                            <tr>
-                                <td><span class="text-muted">Shipping</span></td>
-                                <td class="text-end"><h6 class="mb-0 text-success" id="cart_shipping">Free</h6></td>
-                            </tr> --}}
+                           
                             <tr class="d-none">
                                 <td><span class="text-muted">Tax / GST</span></td>
                                 <td class="text-end"><h6 class="mb-0" id="cart_tax">₹0.00</h6></td>

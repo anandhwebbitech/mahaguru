@@ -32,7 +32,6 @@ class FrontendController extends Controller
     }
     public function allProducts()
     {
-        // Active categories மற்றும் அனைத்து Materials-ஐயும் எடுக்கிறோம்
         $categories = Category::where('status', 1)->get();
         $materials = Material::all();
         return view('pages.all-products', compact('categories', 'materials'));
@@ -184,7 +183,7 @@ class FrontendController extends Controller
             }])
             ->get()
             ->map(function ($product) {
-                $bestVariant = $product->variants->first(); // அதிக தள்ளுபடி உள்ள வேரியண்ட்
+                $bestVariant = $product->variants->first(); 
 
                 $productImage = $product->thumbnail ?? ($bestVariant ? $bestVariant->thumbnail : null);
 
@@ -206,7 +205,7 @@ class FrontendController extends Controller
     {
         $products = Product::with(['category', 'material', 'variants'])
             ->where('is_new_arrival', 1)
-            ->where('status', 1) // Active-ஆன தயாரிப்புகளை மட்டும் எடுக்க
+            ->where('status', 1) 
             ->get()
             ->map(function ($product) {
 
@@ -222,7 +221,6 @@ class FrontendController extends Controller
                     $product->discount_price = $firstVariant->discount_price ?? $firstVariant->selling_price ?? $firstVariant->price;
                     $product->discount = $firstVariant->discount ?? $firstVariant->discount_percentage ?? 0;
                 } else {
-                    // ஒருவேளை மெயின் டேபிளிலேயே விலை இருந்தால் அதற்கான Fallback
                     $product->price = $product->price ?? 0;
                     $product->discount_price = $product->discount_price ?? $product->selling_price ?? $product->price;
                     $product->discount = $product->discount ?? 0;
@@ -231,7 +229,6 @@ class FrontendController extends Controller
                 return $product;
             });
 
-        // 2. Fetch Wishlist Array Keys (fetchProducts-ல் இருப்பது போலவே 100% சிங் செய்யப்பட்டுள்ளது)
         $wishlist = session()->get('wishlist', []);
         $wishlistIds = array_keys($wishlist);
 
@@ -396,76 +393,84 @@ class FrontendController extends Controller
     }
 
     public function CartStore(Request $request)
-    {
-        // 1. Validation Rules
-        $request->validate([
-            'product_id' => 'required|integer',
-            'variant_id' => 'required|integer',
-            'quantity'   => 'required|integer|min:1',
-            'size'       => 'nullable|string',
-            'color'      => 'nullable|string',
-        ]);
+{
+    $request->validate([
+        'product_id' => 'required|integer',
+        'variant_id' => 'nullable|integer', 
+        'quantity'   => 'required|integer|min:1',
+        'size'       => 'nullable|string',
+        'color'      => 'nullable|string',
+    ]);
 
-        $userId = auth()->id();
+    $userId = auth()->id();
+    $productId = $request->product_id;
+    $variantId = $request->variant_id;
 
-        // ⚡ டேட்டாபேஸிலிருந்து நேரடியாக வேரியண்ட் ரெக்கார்டை எடுக்கிறோம்
-        $variant = \App\Models\ProductVariant::where('id', $request->variant_id)
-            ->where('product_id', $request->product_id)
-            ->first();
+    if (empty($variantId)) {
+        $defaultVariant = \App\Models\ProductVariant::where('product_id', $productId)->first();
 
-        if (!$variant) {
+        if (!$defaultVariant) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Requested product variant not found!'
+                'message' => 'This product does not have any variants available!'
             ], 404);
         }
-
-        // வேரியண்ட்டின் discount_price மற்றும் அளவுகளைப் பிரித்தெடுத்தல்
-        $discountPrice = (float) $variant->discount_price;
-        $quantity = (int) $request->quantity;
-
-        // கார்ட்டில் ஏற்கனவே அதே தயாரிப்பு மற்றும் வேரியண்ட் உள்ளதா எனச் சரிபார்த்தல்
-        $cart = Cart::where('user_id', $userId)
-            ->where('product_id', $request->product_id)
-            ->where('variant_id', $request->variant_id)
+        
+        $variantId = $defaultVariant->id;
+        $variant = $defaultVariant;
+    } else {
+        $variant = \App\Models\ProductVariant::where('id', $variantId)
+            ->where('product_id', $productId)
             ->first();
-
-        if ($cart) {
-            // ✅ UPDATE EXISTING CART ITEM
-            $cart->quantity += $quantity;
-
-            // ⚡ விலை மற்றும் மொத்தத் தொகையை இங்கும் புதுப்பிக்கிறோம்
-            $cart->price = $discountPrice;
-            $cart->total_amount = $cart->quantity * $discountPrice;
-
-            $cart->size = $request->size ?? $cart->size;
-            $cart->color = $request->color ?? $cart->color;
-            $cart->save();
-        } else {
-            // 🆕 CREATE NEW CART ITEM
-            $cart = new Cart();
-            $cart->user_id = $userId;
-            $cart->product_id = $request->product_id;
-            $cart->variant_id = $request->variant_id;
-            $cart->quantity = $quantity;
-            $cart->size = $request->size;
-            $cart->color = $request->color;
-
-            // ⚡ 1. 'price' காலமில் variant discount_price சேமிக்கப்படுகிறது
-            $cart->price = $discountPrice;
-
-            // ⚡ 2. 'total_amount' காலமில் மொத்தத் தொகை கணக்கிடப்பட்டு சேமிக்கப்படுகிறது
-            $cart->total_amount = $quantity * $discountPrice;
-
-            $cart->save();
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Product variant added to cart successfully!',
-            'redirect_url' => route('cart')
-        ]);
     }
+
+    if (!$variant) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Requested product variant not found!'
+        ], 404);
+    }
+
+    $discountPrice = (float) $variant->discount_price;
+    $quantity = (int) $request->quantity;
+
+    $cart = Cart::where('user_id', $userId)
+        ->where('product_id', $productId)
+        ->where('variant_id', $variantId) 
+        ->first();
+
+    if ($cart) {
+        // ✅ UPDATE EXISTING CART ITEM
+        $cart->quantity += $quantity;
+
+        $cart->price = $discountPrice;
+        $cart->total_amount = $cart->quantity * $discountPrice;
+
+        $cart->size = $request->size ?? $cart->size;
+        $cart->color = $request->color ?? $cart->color;
+        $cart->save();
+    } else {
+        // 🆕 CREATE NEW CART ITEM
+        $cart = new Cart();
+        $cart->user_id = $userId;
+        $cart->product_id = $productId;
+        $cart->variant_id = $variantId; 
+        $cart->quantity = $quantity;
+        $cart->size = $request->size ?? $variant->size;  
+        $cart->color = $request->color ?? $variant->color; 
+
+        $cart->price = $discountPrice;
+        $cart->total_amount = $quantity * $discountPrice;
+
+        $cart->save();
+    }
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Product added to cart successfully!',
+        'redirect_url' => route('cart')
+    ]);
+}
     public function Cart()
     {
         return view('pages.view-cart'); // your view file
@@ -507,6 +512,60 @@ class FrontendController extends Controller
             'cartItems' => $cartItems
         ]);
     }
+    public function getSidebarCartItems()
+{
+    $cartItems = Cart::with(['product', 'productVariant'])
+        ->where('user_id', auth()->id())
+        ->get();
+
+    $cartItems->transform(function ($item) {
+        $price = 0;
+        $image = 'no-image.png';
+
+        $variant = $item->productVariant ?? null;
+        $product = $item->product ?? null;
+
+        if (!empty($item->price) && floatval($item->price) > 0) {
+            $price = $item->price;
+        } elseif ($variant) {
+            $price = $variant->discount_price ?? $variant->price ?? $variant->variant_price ?? 0;
+        } elseif ($product) {
+            $price = $product->discount_price ?? $product->price ?? 0;
+        }
+
+        if ($variant && (!empty($variant->thumbnail) || !empty($variant->image))) {
+            $image = $variant->thumbnail ?? $variant->image;
+        } elseif ($product && (!empty($product->thumbnail) || !empty($product->image))) {
+            $image = $product->thumbnail ?? $product->image;
+        }
+
+        if (is_array($image)) {
+            $image = reset($image); 
+        } elseif (is_string($image) && json_decode($image) !== null) {
+            $jsonDecoded = json_decode($image, true);
+            if (is_array($jsonDecoded)) {
+                $image = reset($jsonDecoded);
+            }
+        }
+
+        $item->final_price = floatval($price);
+        $item->final_image = !empty($image) ? trim($image) : 'no-image.png';
+
+        if (!empty($item->color) && is_string($item->color)) {
+            $colorData = json_decode($item->color, true);
+            if (is_array($colorData) && isset($colorData['name'])) {
+                $item->color = $colorData['name']; 
+            }
+        }
+
+        return $item;
+    });
+
+    return response()->json([
+        'status' => 'success',
+        'cartItems' => $cartItems
+    ]);
+}
     public function removeCartItem($id)
     {
         $cartItem = Cart::find($id);
@@ -748,48 +807,57 @@ class FrontendController extends Controller
         return view('frontend.user.wishlist', compact('product'));
     }
     public function toggleWishlist($id)
-    {
-        $product = Product::find($id);
+{
+    // Eager load category relationships dynamically to prevent breaks
+    $product = Product::with('category')->find($id);
 
-        if (!$product) {
-            return response()->json(['error' => 'Product not found'], 404);
-        }
-
-        $wishlist = session()->get('wishlist', []);
-
-        if (isset($wishlist[$id])) {
-            unset($wishlist[$id]);
-            $added = false;
-        } else {
-            $wishlist[$id] = [
-                "product_name" => $product->product_name,
-                "id"           => $product->id,
-                "quantity"     => 1,
-                "offer_price"  => $product->discount_price,
-                "product_img" => explode(',', $product->images)[0] ?? null,
-                "user_id"       => auth()->id()
-            ];
-            $added = true;
-        }
-
-        session()->put('wishlist', $wishlist);
-
-        return response()->json([
-            'message' => $added ? 'Added to wishlist' : 'Removed from wishlist',
-            'count' => count($wishlist),
-            'added' => $added
-        ]);
+    if (!$product) {
+        return response()->json(['error' => 'Product not found'], 404);
     }
 
+    $wishlist = session()->get('wishlist', []);
 
-    public function getWishlist()
-    {
-        $wishlist = session()->get('wishlist', []);
-        return response()->json([
-            'items' => $wishlist,
-            'count' => count($wishlist)
-        ]);
+    if (isset($wishlist[$id])) {
+        unset($wishlist[$id]);
+        $added = false;
+    } else {
+        // Fallback Image Resolving Mechanism
+        $resolvedImage = '';
+        if (!empty($product->thumbnail)) {
+            $resolvedImage = $product->thumbnail;
+        } elseif (!empty($product->images)) {
+            $imgArray = array_filter(array_map('trim', explode(',', $product->images)));
+            $resolvedImage = !empty($imgArray) ? reset($imgArray) : '';
+        }
+
+        $wishlist[$id] = [
+            "id"            => $product->id,
+            "product_name"  => $product->product_name,
+            "category_name" => $product->category->name ?? 'Uncategorized', // Get category safely
+            "product_img"   => $resolvedImage,
+            "user_id"       => auth()->id()
+        ];
+        $added = true;
     }
+
+    session()->put('wishlist', $wishlist);
+
+    return response()->json([
+        'message' => $added ? 'Added to wishlist' : 'Removed from wishlist',
+        'count'   => count($wishlist),
+        'added'   => $added
+    ]);
+}
+
+public function getWishlist()
+{
+    $wishlist = session()->get('wishlist', []);
+    
+    return response()->json([
+        'items' => (object)$wishlist, 
+        'count' => count($wishlist)
+    ]);
+}
     public function WishListPage()
     {
         return view('pages.wishlist');
@@ -861,72 +929,76 @@ public function getNewArrivals()
  public function filterProducts(Request $request)
 {
     try {
+
         $category = $request->category;
 
-        // Base Query with Variant relationships
-        $query = Product::with(['variants' => function ($q) {
-            $q->where('status', 1);
-        }])->where('status', 1);
+        $query = Product::with([
+            'variants' => function ($q) {
+                $q->where('status', 1);
+            }
+        ])->where('status', 1);
 
-        // Filter Categories
+        // Category Filter
         if ($category == 'new-arrivals') {
+
             $query->where('is_new_arrival', 1);
+
         } elseif (!empty($category)) {
-            $query->when(is_numeric($category), function($q) use ($category) {
+
+            $query->when(is_numeric($category), function ($q) use ($category) {
+
                 return $q->where('category_id', $category);
-            }, function($q) use ($category) {
-                return $q->whereHas('category', function($subQ) use ($category) {
+
+            }, function ($q) use ($category) {
+
+                return $q->whereHas('category', function ($subQ) use ($category) {
                     $subQ->where('slug', $category);
                 });
+
             });
+
         }
 
-        $rawProducts = $query->latest()->get();
+        $products = $query->latest()->get()->map(function ($product) {
 
-        $products = $rawProducts->map(function ($product) {
-            $firstVariant = $product->variants->first();
-            
-            // Dynamic variant-first fallback pricing logic
-            $price = $firstVariant ? $firstVariant->price : ($product->price ?? 0);
-            $discountPrice = $firstVariant && $firstVariant->discount_price > 0 ? $firstVariant->discount_price : $price;
-            $discountPercentage = $firstVariant ? $firstVariant->discount_percentage : ($product->discount ?? 0);
-            
-            // Comprehensive Image Fallback Hierarchy
-            // Checks: 1. Variant Thumbnail -> 2. Main Product Thumbnail -> 3. Main Product Images column
-            $rawImage = '';
-            if ($firstVariant && !empty($firstVariant->thumbnail)) {
-                $rawImage = $firstVariant->thumbnail;
-            } elseif (!empty($product->thumbnail)) {
-                $rawImage = $product->thumbnail;
-            } elseif (!empty($product->images)) {
-                $rawImage = $product->images;
-            }
+            $variant = $product->variants->first();
+
+            $price = $variant?->price ?? $product->price ?? 0;
+
+            $discountPrice = !empty($variant?->discount_price)
+                ? $variant->discount_price
+                : ($product->discount_price ?? $price);
+
+            $discount = $variant?->discount_percentage
+                ?? $product->discount
+                ?? 0;
 
             return [
                 'id'             => $product->id,
                 'product_name'   => $product->product_name,
-                'price'          => (float)$price,
-                'discount_price' => (float)$discountPrice,
-                'discount'       => (int)$discountPercentage,
-                'images'         => $rawImage, // Sending raw comma string safely over to frontend JS processing
-                'variants'       => $product->variants
+                'price'          => (float) $price,
+                'discount_price' => (float) $discountPrice,
+                'discount'       => (float) $discount,
+                'offer_text'     => $product->offer_text,
+                'thumbnail'      => $product->thumbnail,
             ];
         });
 
         $wishlist = session()->get('wishlist', []);
-        $wishlistIds = is_array($wishlist) ? array_keys($wishlist) : [];
 
         return response()->json([
             'success'  => true,
             'products' => $products,
-            'wishlist' => $wishlistIds
+            'wishlist' => array_map('intval', array_keys($wishlist))
         ]);
 
     } catch (\Exception $e) {
+
         return response()->json([
             'success' => false,
             'message' => $e->getMessage()
         ], 500);
+
     }
 }
     public function About(Request $request)

@@ -81,10 +81,8 @@ class AuthController extends Controller
         ], 401);
     }
 
-    // 4 இலக்க OTP உருவாக்குதல்
     $otp = rand(1000, 9999);
 
-    // தற்காலிகமாக பயனர் விபரங்களை செஷனில் சேமித்தல் (3 நிமிடங்கள் மட்டும்)
     Session::put('otp_email', $user->email);
     Session::put('otp_code', $otp);
     Session::put('otp_expires_at', now()->addMinutes(3));
@@ -112,7 +110,6 @@ class AuthController extends Controller
     }
 }
 
-// 2. OTP-ஐ சரிபார்த்து இறுதி லாகின் செய்யும் மெத்தட்
 public function verifyEmailOtp(Request $request)
 {
     $request->validate([
@@ -123,7 +120,6 @@ public function verifyEmailOtp(Request $request)
     $sessionOtp = Session::get('otp_code');
     $expiresAt = Session::get('otp_expires_at');
 
-    // செஷன் காலாவதி மற்றும் இருப்பு சரிபார்ப்பு
     if (!$sessionOtp || !$sessionEmail || now()->greaterThan($expiresAt)) {
         return response()->json([
             'success' => false,
@@ -131,7 +127,6 @@ public function verifyEmailOtp(Request $request)
         ], 422);
     }
 
-    // பயனர் உள்ளிட்ட OTP-யும் செஷன் OTP-யும் ஒத்துப்போகிறதா எனப் பார்த்தல்
     if (intval($request->otp) !== intval($sessionOtp)) {
         return response()->json([
             'success' => false,
@@ -139,7 +134,6 @@ public function verifyEmailOtp(Request $request)
         ], 401);
     }
 
-    // OTP வெற்றிகரமாக முடிந்ததால் செஷனை அழித்துவிட்டு லாகின் செய்தல்
     Session::forget(['otp_email', 'otp_code', 'otp_expires_at']);
 
     $user = User::where('email', $sessionEmail)->first();
@@ -285,7 +279,6 @@ public function verifyEmailOtp(Request $request)
         $user->otp_expires_at = Carbon::now()->addMinutes(5);
         $user->save();
 
-        // TODO: Insert external gateway API logic here (e.g., Twilio, MSG91)
 
         return response()->json([
             'success' => true,
@@ -358,16 +351,13 @@ public function verifyEmailOtp(Request $request)
         ], 404);
     }
 
-    // 4 இலக்க OTP-ஐ உருவாக்குதல்
     $otp = rand(1000, 9990);
 
-    // OTP மற்றும் Email-ஐ செஷனில் சேமித்தல் (3 நிமிடங்களுக்கு மட்டும் செல்லுபடியாகும்)
     Session::put('login_email', $request->email);
     Session::put('login_otp', $otp);
     Session::put('otp_expires_at', now()->addMinutes(3));
 
     try {
-        // பயனர் மின்னஞ்சலுக்கு OTP அனுப்புதல்
         Mail::send([], [], function ($message) use ($user, $otp) {
             $message->to($user->email)
                 ->subject('Your Login OTP Verification Code')
@@ -387,7 +377,6 @@ public function verifyEmailOtp(Request $request)
     }
 }
 
-// 2. மின்னஞ்சல் OTP-ஐ சரிபார்த்து லாகின் செய்யும் மெத்தட்
 // public function verifyEmailOtp(Request $request)
 // {
 //     $request->validate([

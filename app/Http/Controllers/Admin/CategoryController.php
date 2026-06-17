@@ -59,13 +59,11 @@ class CategoryController extends Controller
         $imageName = $category->image;
 
         if ($request->hasFile('image')) {
-            // பழைய படம் இருந்தால் அதை நீக்குதல்
             $oldImagePath = public_path('uploads/categories/' . $category->image);
             if (File::exists($oldImagePath) && $category->image) {
                 File::delete($oldImagePath);
             }
 
-            // புதிய படத்தை பதிவேற்றுதல்
             $image = $request->file('image');
             $imageName = time() . '.' . $image->getClientOriginalExtension();
             $image->move(public_path('uploads/categories'), $imageName);
@@ -83,7 +81,6 @@ class CategoryController extends Controller
     {
         $category = Category::findOrFail($id);
 
-        // டேட்டாபேஸில் இருந்து நீக்குவதற்கு முன் கோப்புறையில் உள்ள படத்தை நீக்குதல்
         $imagePath = public_path('uploads/categories/' . $category->image);
         if (File::exists($imagePath) && $category->image) {
             File::delete($imagePath);

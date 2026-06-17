@@ -57,7 +57,7 @@
                             <p>We retain your data as long as necessary for legal and business operations.</p>
                             <ul>
                                 <li>Email: <strong> mahaguruboutique@gmail.com</strong></li>
-                                <li>Phone: <strong>+91 7867077800</strong></li>
+                                <li>Phone: <strong>+91 9597990975</strong></li>
                                 <li>Address: <strong> 521, Pollachi main road, Pollachi, Coimbatore - 650921</strong></li>
                             </ul>
                         </div>
