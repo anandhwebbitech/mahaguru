@@ -189,6 +189,7 @@
             $(document).ready(function() {
                 loadSidebarCart();
                 loadAddresses();
+                loadWishlist();
             });
 
             function loadSidebarCart() {

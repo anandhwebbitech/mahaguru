@@ -542,14 +542,12 @@
         success: function(response) {
             let products = response.products;
             
-            // 🛠️ FIX: Login-க்கு அப்பறம் வர்ற விஷ்லிஸ்ட் டேட்டாவை பாதுகாப்பா Array-வா மாத்துறோம்
             let wishlistRaw = response.wishlist || [];
             let wishlistArray = [];
 
             if (Array.isArray(wishlistRaw)) {
                 wishlistArray = wishlistRaw.map(id => parseInt(id));
             } else if (typeof wishlistRaw === 'object' && wishlistRaw !== null) {
-                // ஒருவேளை Backend-ல இருந்து Key-Value Object-ஆ வந்தா அதோட Keys-ஐ மட்டும் பிரிச்சு எடுக்குறோம்
                 wishlistArray = Object.keys(wishlistRaw).map(id => parseInt(id));
             }
 
@@ -562,11 +560,9 @@
             }
 
             products.forEach(product => {
-                // 🛠️ FIX: `includes()` crash ஆகாம இருக்க integer type check பண்றோம்
                 let isActive = wishlistArray.includes(parseInt(product.id)) ? "active" : "";
                 let mediaContent = generateProductMediaHtml(product);
 
-                // Safe fallback evaluation for numbers
                 let discountPrice = parseFloat(product.discount_price || 0);
                 let originalPrice = parseFloat(product.price || 0);
 
@@ -577,20 +573,26 @@
                         <div class="product-badge-container">
                             <span class="badge">-${parseInt(product.discount)}%</span>
                         </div>` : ''}
-                        <div class="dz-media" onclick="window.location.href='${productDetailsRoute}/${product.id}'">
+                        
+                        <div class="dz-media">
                              ${mediaContent}
                             <div class="shop-meta">
                                 <a href="${productDetailsRoute}/${product.id}" class="btn btn-secondary btn-sm">
                                     <i class="fa-solid fa-eye"></i> Quick View
                                 </a>
-                                <div class="btn btn-primary meta-icon dz-wishicon addToWishlist ${isActive}" data-id="${product.id}" id="wishlist-btn-${product.id}">
+                                <div class="btn btn-primary meta-icon dz-wishicon addToWishlist ${isActive}" data-id="${product.id}">
                                     <i class="icon feather icon-heart dz-heart"></i>
                                     <i class="icon feather icon-heart-on dz-heart-fill"></i>
+                                </div>
+                                <div class="btn btn-primary meta-icon dz-carticon btn-addto-cart" data-id="${product.id}" data-price="${discountPrice}">
+                                    <i class="flaticon flaticon-basket"></i>
                                 </div>
                             </div>
                         </div>
                         <div class="dz-content">
-                            <h5 class="title"><a href="${productDetailsRoute}/${product.id}">${product.product_name}</a></h5>
+                            <h5 class="title">
+                                <a href="${productDetailsRoute}/${product.id}">${product.product_name}</a>
+                            </h5>
                             <h6 class="price">
                                 ₹${discountPrice.toFixed(2)}
                                 ${originalPrice > discountPrice ? `<del>₹${originalPrice.toFixed(2)}</del>` : ''}
@@ -612,7 +614,6 @@
         }
     });
 }
-
         // Fetch Blockbuster Deals Carousel Pipeline
         function fetchDiscountProducts() {
             $.ajax({

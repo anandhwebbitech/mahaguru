@@ -17,7 +17,6 @@ class ShippingChargeController extends Controller
         return view('admin.shipping.create');
     }
 
-    // புதிய ஷிப்பிங் விலை சேமிக்க
     public function store(Request $request) {
         $request->validate([
             'state' => 'required|unique:shipping_charges,state',
@@ -40,7 +39,6 @@ class ShippingChargeController extends Controller
         return view('admin.shipping.edit', compact('shipping'));
     }
 
-    // எடிட் செய்த விலையை அப்டேட் செய்ய
     public function update(Request $request, $id) {
         $shipping = ShippingCharge::findOrFail($id);
         $shipping->update([

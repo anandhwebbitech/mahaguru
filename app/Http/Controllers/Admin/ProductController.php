@@ -313,14 +313,13 @@ public function deleteProduct($id)
 }
    public function fetchProducts(Request $request)
 {
-    // 1. தேவையற்ற பழைய foreach லூப்களைத் தவிர்த்து, Eloquent Relationship மூலமே வேரியண்ட்களை இழுக்கிறோம்
     $products = Product::with([
         'category',
         'material',
-        'variants.size',  // வேரியண்ட்டிற்குள் இருக்கும் சைஸ் ரிலேஷன்
-        'variants.color'  // வேரியண்ட்டிற்குள் இருக்கும் கலர் ரிலேஷன்
+        'variants.size',  
+        'variants.color' 
     ])
-    ->orderBy('id', 'desc') // புதிய ப்ராடக்ட்கள் முதலில் வர
+    ->orderBy('id', 'desc') 
     ->get();
 
     return response()->json([

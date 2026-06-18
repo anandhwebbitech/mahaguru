@@ -82,6 +82,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/cart/store', [FrontendController::class, 'CartStore'])->name('cart.store');
     Route::get('/cart', [FrontendController::class, 'Cart'])->name('cart');
     Route::get('/cart/items', [FrontendController::class, 'getCartItems'])->name('cart.items');
+    Route::get('/sidebar_cart/items', [FrontendController::class, 'getSidebarCartItems'])->name('sidecart.items');
     Route::delete('/cart/remove/{id}', [FrontendController::class, 'removeCartItem'])->name('cart.remove');
     Route::post('/cart/update', [FrontendController::class, 'updateCart'])->name('cart.update');
     Route::get('/checkout', [FrontendController::class, 'CheckOut'])->name('checkout');

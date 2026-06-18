@@ -392,133 +392,226 @@
      });
 
      function loadWishlist() {
+            loadtoggleCart();
+
          $.ajax({
-             url: '{{ route('get.wishlist') }}', // Make sure this route points to getWishlist()
+             url: '{{ route('get.wishlist') }}',
              method: 'GET',
              success: function(data) {
-
                  let html = '';
-                 let items = data.items;
+                 let items = data.items || {};
+
+                 const imageBase = "{{ asset('public/uploads/products') }}/";
+                 const fallbackImage = "{{ asset('assets/images/no-image.png') }}";
 
                  if (Object.keys(items).length === 0) {
-                     html = '<li>No items in wishlist.</li>';
+                     html = `
+                    <li class="text-center p-5 text-muted">
+                        <div class="mb-2"><i class="fa-regular fa-heart fa-2x" style="color: #cbd5e1;"></i></div>
+                        <p class="mb-0" style="font-size: 14px;">Your wishlist is empty.</p>
+                    </li>`;
                  } else {
-
                      $.each(items, function(id, item) {
+                         let currentImage = item.product_img || item.thumbnail;
+                         let imageUrl = (currentImage && currentImage.trim() !== '') ?
+                             imageBase + currentImage :
+                             fallbackImage;
+
+                         let categoryDisplay = item.category_name || 'General';
 
                          html += `
-                <li>
-                    <div class="cart-widget">
-                        <div class="dz-media me-3">
-                            <img src="{{ asset('public/uploads/images') }}/${item.product_img}" alt="">
-                        </div>
-                        <div class="cart-content">
-                           <h6 class="title">
-                                <a href="{{ url('product') }}/${item.id}">
-                                    ${item.product_name}
-                                </a>
-                            </h6>
-                            <div class="d-flex align-items-center">
-                                <h6 class="dz-price mb-0">₹${item.offer_price}</h6>
+                    <li class="mb-3" style="list-style: none;">
+                        <div class="wishlist-item-card d-flex align-items-center">
+                            <div class="wishlist-thumb-wrapper me-3">
+                                <img src="${imageUrl}" alt="${item.product_name}" loading="lazy">
                             </div>
+                            
+                            <div class="cart-content flex-grow-1 min-w-0">
+                                <h6 class="wish-prod-title">
+                                    <a href="{{ url('product') }}/${item.id}">
+                                        ${item.product_name}
+                                    </a>
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <span class="wish-category-badge">
+                                        <i class="fa-regular fa-folder open me-1" style="font-size: 9px;"></i>
+                                        ${categoryDisplay}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <a href="javascript:void(0);" class="wish-delete-btn ms-2" onclick="removeFromWishlist(${item.id})" title="Remove Item">
+                                <i class="fa-solid fa-xmark"></i>
+                            </a>
                         </div>
-                        <a href="javascript:void(0);" class="wish-close" onclick="removeFromWishlist(${id})">
-                            <i class="ti-close"></i>
-                        </a>
-                    </div>
-                </li>
-                <br>
-            `;
+                    </li>`;
                      });
                  }
 
                  $('.sidebar-wish-list').html(html);
-                 $(".wish-count").text(data.count); // now works!
+                 $(".wish-count").text(data.count || 0);
+             },
+             error: function(xhr) {
+                 console.error("Critical tracking session execution log:", xhr.responseText);
              }
          });
      }
 
-     function loadCart() {
-         $.ajax({
-            url: "{{ route('cart.items') }}",
-            method: "GET",
-            dataType: "json",
-            success: function(response) {
-                if (response.status === 'success') {
-                    let tbody = '';
-                    let grandTotal = 0;   
-                    
-                    // ⚡ FIX: Array மற்றும் Object இரண்டையும் பாதுகாப்பாக கையாள Object.values() பயன்படுத்துகிறோம்
-                    let itemsArray = Object.values(response.cartItems);
-                    let itemCount = itemsArray.length;
 
-                    if(itemCount === 0) {
-                        cartItemCount = 0;
-                        togglePlaceOrderButton();
-                        $('#cartTableBody').html('<tr><td colspan="6" class="text-center py-4">Your cart is empty.</td></tr>');
-                        return;
+function loadtoggleCart() {
+    $.ajax({
+        url: "{{ route('sidecart.items') }}",
+        method: "GET",
+        dataType: "json",
+        success: function(response) {
+            if (response.status === 'success') {
+                let sidebarList = ''; 
+                let grandTotal = 0;
+
+                let itemsArray = response.cartItems || []; 
+                let itemCount = itemsArray.length;
+
+                if (itemCount === 0) {
+                    $('.sidebar-cart-list').html('<li class="text-center py-3">Your cart is empty.</li>');
+                    $('#sidebar_subtotal').text("00.00 ₹");
+                    $('.cart-count').text("0"); 
+                    $('.cart-badge-count').text("0");
+                    return;
+                }
+
+                itemsArray.forEach(function(item) {
+                    let price = parseFloat(item.final_price) || 0;
+                    let itemQuantity = parseInt(item.quantity) || 1;
+                    let itemTotal = price * itemQuantity;
+                    grandTotal += itemTotal;
+
+                    let currentFallback = "{{ asset('assets/images/no-image.png') }}";
+                    let currentStorage = "{{ asset('public/uploads/products') }}/"; 
+                    
+                    let finalImgSrc = currentFallback; // Default fallback
+                    if (item.final_image && item.final_image !== 'no-image.png') {
+                        finalImgSrc = currentStorage + item.final_image;
                     }
 
-                    itemsArray.forEach(function(item) {
-                        // 1. கண்ட்ரோலரில் இருந்து வரும் நேரடி துல்லியமான விலை
-                        let price = parseFloat(item.final_price) || 0;
-                        
-                        // 2. கண்ட்ரோலரில் இருந்து வரும் துல்லியமான இமேஜ் பெயர்
-                        let productImage = item.final_image ? item.final_image.trim() : '';
-                        let finalImgSrc = (productImage === 'no-image.png' || !productImage) ? fallbackImg : (storageUrl + productImage);
-
-                        // 3. வேரியண்ட் விவரங்கள் (Size, Color)
-                        let variantDetails = '';
-                        let sizeName = item.size ? `Size: ${item.size}` : '';
-                        let colorName = item.color ? `Color: ${item.color}` : '';
-                        if (sizeName || colorName) {
-                            variantDetails = `(${sizeName}${sizeName && colorName ? ', ' : ''}${colorName})`;
+                    let cleanColor = '';
+                    if (item.color) {
+                        if (typeof item.color === 'string' && (item.color.startsWith('{') || item.color.startsWith('['))) {
+                            try {
+                                let colorObj = JSON.parse(item.color);
+                                cleanColor = colorObj.name ? colorObj.name : item.color;
+                            } catch (e) {
+                                cleanColor = item.color;
+                            }
+                        } else {
+                            cleanColor = item.color;
                         }
+                    }
 
-                        // 4. கணிதக் கணக்கீடுகள்
-                        let itemQuantity = parseInt(item.quantity) || 1;
-                        let itemTotal = price * itemQuantity;
-                        grandTotal += itemTotal;
-
-                        // தயாரிப்பு பெயர் (உங்கள் டேட்டாபேஸ் படி 'product_name')
-                        let productName = (item.product && item.product.product_name) ? item.product.product_name : 'Unknown Product';
-
-                        tbody += `
-                        <tr data-id="${item.id}" data-price="${price}">
-                            <td class="product-item-img">
-                                <img src="${finalImgSrc}" onerror="this.src='${fallbackImg}'" alt="${productName}" style="width:80px; height:80px; object-fit:cover;">
-                            </td>
-                            <td class="product-item-name">
-                                ${productName} <br>
-                                <small class="text-danger font-weight-bold">${variantDetails}</small>
-                            </td>
-                            <td class="product-item-price">₹${price.toFixed(2)}</td>
-                            <td class="product-item-quantity">
-                                <div class="qty-wrapper">
-                                    <button class="qty-btn minus" type="button">−</button>
-                                    <span class="qty-number">${itemQuantity}</span>
-                                    <button class="qty-btn plus" type="button">+</button>
-                                </div>
-                            </td>
-                            <td class="product-item-totle subtotal">₹${itemTotal.toFixed(2)}</td>
-                            <td class="product-item-close">
-                                <a href="javascript:void(0);" class="text-danger" onclick="removeCartItem(${item.id})">
-                                    <i class="ti-close"></i>
-                                </a>
-                            </td>
-                        </tr>
-                        `;
-                    });
+                    // VARIANT DETAILS STRING GENERATION
+                    let variantDetails = '';
+                    let sizeName = item.size ? `Size: ${item.size}` : '';
+                    let colorName = cleanColor ? `Color: ${cleanColor}` : ''; 
                     
-                    $('#cartTableBody').html(tbody);
-                    $('#overall_total').text("₹" + grandTotal.toFixed(2));
-                    cartItemCount = itemCount;
-                    togglePlaceOrderButton();
-                }
-            },
-            error: function() {
-                $('#cartTableBody').html('<tr><td colspan="6" class="text-center text-danger py-4">Failed to load cart.</td></tr>');
+                    if (sizeName || colorName) {
+                        variantDetails = `(${sizeName}${sizeName && colorName ? ', ' : ''}${colorName})`;
+                    }
+
+                    let productName = (item.product && item.product.product_name) ? item.product.product_name : 'Unknown Product';
+
+                    sidebarList += `
+                    <li class="sidebar-cart-item d-flex align-items-center mb-3" style="gap: 15px;">
+                        <div class="sidebar-item-img" style="width:60px; height:60px; flex-shrink:0;">
+                            <img src="${finalImgSrc}" 
+                                onerror="this.src='${currentFallback}'" 
+                                alt="${productName}" 
+                                class="sidebar-img"
+                                style="width:100%; height:100%; object-fit:cover;">
+                        </div>
+                        <div class="sidebar-item-info flex-grow-1">
+                            <h6 class="mb-0 text-truncate" style="max-width: 150px;">${productName}</h6>
+                            <small class="text-muted d-block">${variantDetails}</small>
+                            <small class="text-secondary">${itemQuantity} x ₹${price.toFixed(2)}</small>
+                        </div>
+                        <div class="sidebar-item-close">
+                            <a href="javascript:void(0);" class="text-danger" onclick="deleteCartItem(${item.id})">
+                                <i class="ti-close"></i>
+                            </a>
+                        </div>
+                    </li>`;
+                });
+
+                $('.sidebar-cart-list').html(sidebarList); 
+                $('#sidebar_subtotal').text(grandTotal.toFixed(2) + " ₹"); 
+
+                $('.cart-count').text(itemCount);
+                $('.cart-badge-count').text(itemCount);
             }
-        });
-     }
+        },
+        error: function(xhr) {
+            console.error("Cart fetch error:", xhr.responseText);
+            $('.sidebar-cart-list').html('<li class="text-center text-danger py-3">Failed to load cart.</li>');
+        }
+    });
+}
+
+$(document).off("click", ".btn-addto-cart").on("click", ".btn-addto-cart", function(e) {
+    e.preventDefault();
+    e.stopPropagation(); // 👈 பக்கத்தை ரீடைரக்ட் செய்யாமல் தடுக்கும்
+
+    let productId = $(this).data("id");
+    let productPrice = $(this).data("price") || 0;
+
+    $.ajax({
+        url: "{{ route('cart.store') }}",
+        method: "POST",
+        data: {
+            _token: "{{ csrf_token() }}",
+            product_id: productId,
+            variant_id: null,    // லிஸ்டிங் பக்கத்தில் வேரியண்ட் இல்லாததால் null
+            quantity: 1,         // நேரடி கிளிக்கிற்கு குவாண்டிட்டி 1
+            size: '',
+            color: '',
+            total: productPrice
+        },
+        beforeSend: function() {
+            Swal.fire({
+                title: 'Adding to Cart...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+        },
+        success: function(response) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Added to Cart',
+                text: response.message,
+                timer: 2000,
+                showConfirmButton: false
+            });
+            
+            // ⚡ உங்கள் கார்ட் மினி சைட்பாரை உடனே ரீலோடு செய்ய இந்த ஃபங்ஷனை அழைக்கவும்
+            if (typeof loadtoggleCart === "function") {
+                loadtoggleCart();
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 401) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Login Required',
+                    text: 'Please login to continue processing',
+                    confirmButtonText: 'Login'
+                }).then(() => {
+                    window.location.href = "{{ route('login') }}";
+                });
+                return;
+            }
+            let message = 'Something went wrong processing your request.';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            }
+            Swal.fire({ icon: 'error', title: 'Error', text: message });
+        }
+    });
+});
  </script>
