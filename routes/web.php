@@ -100,12 +100,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/razorpay/create-order', [FrontendController::class, 'razorpayCreateOrder'])
         ->name('razorpay.createOrder');
     Route::post('/order/create-initial', [OrderController::class, 'createInitial'])->name('order.create.initial');
-    Route::get('/select-payment/{order_id}', [OrderController::class, 'selectPayment']);
-    Route::get('/payment/cod/{order_id}', [OrderController::class, 'cashOnDelivery']);
-    Route::get('/payment/razorpay/{order_id}', [OrderController::class, 'razorpayPayment']);
-    Route::post('/payment/razorpay/verify', [OrderController::class, 'razorpayVerify'])->name('razorpay.verify');
-    Route::get('/select-payment/{order}', [OrderController::class, 'show'])->name('select-payment');
-    Route::post('/payment/save', [OrderController::class, 'savePayment'])->name('payment.save');
+    // Route::get('/select-payment/{order_id}', [OrderController::class, 'selectPayment']);
+    // Route::get('/payment/cod/{order_id}', [OrderController::class, 'cashOnDelivery']);
+    // Route::get('/payment/razorpay/{order_id}', [OrderController::class, 'razorpayPayment']);
+    // Route::post('/payment/razorpay/verify', [OrderController::class, 'razorpayVerify'])->name('razorpay.verify');
+    // Route::get('/select-payment/{order}', [OrderController::class, 'show'])->name('select-payment');
+    // Route::post('/payment/save', [OrderController::class, 'savePayment'])->name('payment.save');
     Route::get('/myorderuser', [FrontendController::class, 'MyOrderUser'])
         ->middleware('auth')
         ->name('myorderuser');
@@ -116,6 +116,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/apply-coupon', [OrderController::class, 'applyCoupon'])->name('coupon.apply');
     Route::get('/orders/{id}/invoice', [OrderController::class, 'invoice'])
         ->name('orders.invoice');
+
+    Route::get('/phonepe/callback/{orderId}', [OrderController::class, 'phonepeCallback'])->name('phonepe.callback');
+    Route::get('/thank-you/{orderId}', [OrderController::class, 'thankYou'])->name('thank-you');
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -158,11 +161,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/products_list', [ProductController::class, 'fetchProducts'])->name('fetchProductslist');
 
         Route::get('orders/invoice/{id}', [AdminController::class, 'invoice'])
-    ->name('orders.invoice');
+            ->name('orders.invoice');
 
-    Route::get('/enquiry', [AdminController::class, 'enquiry'])->name('enquiry');
-    Route::delete('/enquiry/delete/{id}', [AdminController::class, 'deleteEnquiry'])->name('enquiry.delete');
-    Route::get('/get-subcategories/{id}',[ProductController::class, 'getSubCategories'])->name('getSubCategories');
-    
+        Route::get('/enquiry', [AdminController::class, 'enquiry'])->name('enquiry');
+        Route::delete('/enquiry/delete/{id}', [AdminController::class, 'deleteEnquiry'])->name('enquiry.delete');
+        Route::get('/get-subcategories/{id}', [ProductController::class, 'getSubCategories'])->name('getSubCategories');
     });
 });

@@ -34,5 +34,12 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'phonepe' => [
+        'client_id'      => env('PHONEPE_CLIENT_ID'),
+        'client_secret'  => env('PHONEPE_CLIENT_SECRET'),
+        'client_version' => env('PHONEPE_CLIENT_VERSION', 1),
+        'auth_url'       => env('PHONEPE_AUTH_URL'),
+        'merchant_id'    => env('PHONEPE_MERCHANT_ID'),
+    ],
 
 ];

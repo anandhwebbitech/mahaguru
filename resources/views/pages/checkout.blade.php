@@ -23,36 +23,12 @@
             height: 18px;
             cursor: pointer;
             accent-color: #ff6a3d;
-            /* Stylish orange-red radio button */
         }
 
         .btn-sm {
             padding: 6px 16px;
             font-size: 14px;
             border-radius: 6px;
-        }
-
-        .selectable {
-            cursor: pointer;
-            border: 2px solid #dee2e6;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .selectable:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-        }
-
-        .selectable.active {
-            border-color: #0d6efd;
-            background-color: #e7f1ff;
-            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
-        }
-
-        .selectable.active p {
-            color: #0d6efd;
-            font-weight: 600;
         }
 
         #accordionFaq .accordion-item {
@@ -97,14 +73,12 @@
         </div>
         <!--Banner End-->
 
-        <!-- inner page banner End-->
         <div class="content-inner-1">
             <div class="container">
                 <div class="row shop-checkout">
                     <div class="col-xl-8">
                         <h4 class="title m-b15">Billing details</h4>
                         <div class="accordion dz-accordion accordion-sm" id="accordionFaq">
-                            <!-- 3 -->
                             <div class="accordion-item">
 
                                 <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
@@ -113,11 +87,9 @@
                                         <button class="accordion-button p-0 shadow-none bg-transparent" type="button"
                                             data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="true"
                                             aria-controls="collapseThree">
-
                                             <span class="fw-semibold">
                                                 Select Delivery Address
                                             </span>
-
                                         </button>
                                     </h2>
                                     <a href="{{ route('userdashboard') }}">
@@ -140,7 +112,6 @@
                                 </div>
 
                             </div>
-
 
                         </div>
 
@@ -189,7 +160,7 @@
                             </table>
 
                             <p class="text">Your personal data will be used to process your order, support your experience
-                                throughout this website, and for other purposes described in our <a
+                                throughout this website, and for other purposes described in our 
                                     href="{{ route('privacy') }}">privacy policy.</a></p>
 
                             <div class="form-group">
@@ -214,7 +185,6 @@
             var baseUrl = "{{ asset('') }}";
             let cartProductIds = [];
             let cartItemCount = 0;
-            let paymentMethod = null;
 
             $(document).ready(function() {
                 loadSidebarCart();
@@ -302,7 +272,6 @@
                 return baseSubtotal;
             }
 
-            // 🌟 அசல் கார்ட் டோட்டல் (தயாரிப்பு விலை + தயாரிப்பு ஜிஎஸ்டி சேர்ந்த தொகை)
             function getOriginalCartTotal() {
                 let cartTotal = parseFloat($("#overall_total").data("cart-total"));
                 return cartTotal ? cartTotal : getOriginalSubtotal();
@@ -364,7 +333,6 @@
 
                         $("#deliveryAddressContainer").html(html);
 
-                        // Default address auto load
                         let selected = $("input[name='selected_address']:checked");
                         if (selected.length) {
                             loadAddressDetails(
@@ -380,7 +348,6 @@
 
             function loadAddressDetails(addressId, country, state) {
                 if (!addressId) return;
-                console.log("Address Loaded:", addressId);
                 $("#selected_address_id").val(addressId);
 
                 $.ajax({
@@ -463,9 +430,7 @@
                             }
                             $("#gst_section").html(gstHtml);
 
-                            // இரண்டு டோட்டல் கண்டெய்னர்களையும் ஒரே மதிப்பில் ஒத்திசைக்கிறோம்
-                            $("#overall_total").text("₹" + subtotal.toFixed(
-                            2)); // சப்டோட்டல் மாறாமல் அப்படியே இருக்கும்
+                            $("#overall_total").text("₹" + subtotal.toFixed(2));
                             $("#overallTotal").text("₹" + parseFloat(res.final_total).toFixed(2));
                         }
                     },
@@ -475,7 +440,6 @@
                 });
             }
 
-            // கூப்பன் அப்ளை செய்யும் லாஜிக்
             $("#applyCouponBtn").click(function(e) {
                 e.preventDefault();
                 let couponCode = $("#coupon_code").val().trim();
@@ -515,11 +479,9 @@
 
                             let $selectedRadio = $("input[name='selected_address']:checked");
                             if ($selectedRadio.length > 0) {
-                                // முகவரி ஏற்கனவே இருந்தால், மீண்டும் ஷிப்பிங் மற்றும் பேக்கேண்ட் ஜிஎஸ்டியுடன் இறுதித் தொகையைக் கணக்கிட அனுப்பவும்
                                 addressGst($selectedRadio.val(), $selectedRadio.data("country"),
                                     $selectedRadio.data("state"));
                             } else {
-                                // முகவரி இல்லாத சூழலில், அசல் கார்ட் தொகையிலிருந்து (தயாரிப்பு + தயாரிப்பு ஜிஎஸ்டி) கூப்பனைக் கழிக்கிறோம்
                                 let originalCartTotal = getOriginalCartTotal();
                                 let final = originalCartTotal - parseFloat(res.discount);
                                 if (final < 0) final = 0;
@@ -539,18 +501,11 @@
                 });
             });
 
-            // பேமெண்ட் மெத்தட் செலக்ட் செய்தல்
-            $(document).on("click", ".selectable", function() {
-                $(".selectable").removeClass("border border-primary active");
-                $(this).addClass("border border-primary active");
-                paymentMethod = $(this).data("method");
-            });
-
+            // Place order -> create order -> redirect straight to PhonePe
             $(document).on("click", "#place_order_btn", function(e) {
                 e.preventDefault();
 
                 let $btn = $(this);
-
                 let address_id = $("#selected_address_id").val();
                 let termsAccepted = $("#basic_checkbox_3").is(":checked");
 
@@ -569,11 +524,6 @@
                     return;
                 }
 
-                // if (!paymentMethod) {
-                //     Swal.fire('Warning', 'Please select a payment method.', 'warning');
-                //     return;
-                // }
-
                 $btn.prop('disabled', true).text('Processing...');
 
                 $.ajax({
@@ -581,60 +531,22 @@
                     type: "POST",
                     data: {
                         address_id: address_id,
-                        payment_method: paymentMethod,
                         _token: "{{ csrf_token() }}"
                     },
-
                     success: function(res) {
-
-                        if (res.status === "success" &&
-                            Array.isArray(res.order_ids) &&
-                            res.order_ids.length > 0) {
-
-                            if (paymentMethod === "cod") {
-
-                                Swal.fire({
-                                    icon: "success",
-                                    title: "Order Placed",
-                                    text: "Your order has been placed successfully."
-                                }).then(() => {
-                                    window.location.href = "{{ url('/') }}";
-                                });
-
-                            } else {
-
-                                let firstOrderId = res.order_ids[0];
-                                let amount = parseFloat(res.total_amount || 0);
-
-                                window.location.href =
-                                    "{{ url('payment/razorpay') }}/" +
-                                    firstOrderId +
-                                    "?amount=" +
-                                    amount;
-                            }
-
+                        if (res.status === "success" && res.redirect_url) {
+                            window.location.href = res.redirect_url;
                         } else {
-
-                            Swal.fire(
-                                "Error",
-                                res.message || "Order creation failed.",
-                                "error"
-                            );
-
+                            Swal.fire("Error", res.message || "Order creation failed.", "error");
                             $btn.prop('disabled', false).text('Place Order');
                         }
                     },
-
                     error: function(xhr) {
-
                         let message = "Something went wrong. Please try again.";
-
                         if (xhr.responseJSON && xhr.responseJSON.message) {
                             message = xhr.responseJSON.message;
                         }
-
                         Swal.fire("Error", message, "error");
-
                         $btn.prop('disabled', false).text('Place Order');
                     }
                 });
